@@ -1,0 +1,25 @@
+{
+  "name": "shillervsgold",
+  "version": "1.0.0",
+  "description": "Historical market valuations: Shiller CAPE ratio, home prices, and gold prices visualization",
+  "main": "app.js",
+  "scripts": {
+    "preprocess": "node preprocess.js",
+    "serve": "python3 -m http.server 8000"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/posix4e/shillervsgold"
+  },
+  "keywords": [
+    "shiller",
+    "cape",
+    "gold",
+    "stocks",
+    "real-estate",
+    "economics",
+    "visualization"
+  ],
+  "author": "posix4e",
+  "license": "MIT"
+}
