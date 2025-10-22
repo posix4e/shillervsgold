@@ -634,6 +634,29 @@ function calculateInvestmentReturn() {
     const years = (endPoint.date - startPoint.date) / (1000 * 60 * 60 * 24 * 365.25);
     const annualizedReturn = years > 0 ? (Math.pow(finalValue / amount, 1 / years) - 1) * 100 : 0;
 
+    // Verification: Calculate what the final value SHOULD be with compound interest
+    const verificationValue = amount * Math.pow(1 + (annualizedReturn / 100), years);
+    const verificationDiff = Math.abs(verificationValue - finalValue);
+
+    // Log calculation details for verification
+    console.log('=== Investment Calculation Verification ===');
+    console.log(`Asset: ${assetName}`);
+    console.log(`Period: ${startPoint.date.toLocaleDateString()} to ${endPoint.date.toLocaleDateString()}`);
+    console.log(`Years: ${years.toFixed(2)}`);
+    console.log(`Start Price: $${startPrice.toFixed(2)}`);
+    console.log(`End Price: $${endPrice.toFixed(2)}`);
+    console.log(`Price Ratio: ${(endPrice / startPrice).toFixed(4)}x`);
+    console.log(`Initial Investment: $${amount.toFixed(2)}`);
+    console.log(`Final Value: $${finalValue.toFixed(2)}`);
+    console.log(`Total Return: $${totalReturn.toFixed(2)} (${returnPercentage.toFixed(2)}%)`);
+    console.log(`Annualized Return (CAGR): ${annualizedReturn.toFixed(2)}%`);
+    console.log('--- Verification ---');
+    console.log(`Compound interest check: $${amount.toFixed(2)} × (1 + ${(annualizedReturn/100).toFixed(6)})^${years.toFixed(2)}`);
+    console.log(`Expected final value: $${verificationValue.toFixed(2)}`);
+    console.log(`Actual final value: $${finalValue.toFixed(2)}`);
+    console.log(`Difference: $${verificationDiff.toFixed(2)} ${verificationDiff < 0.01 ? '✓ PASS' : '⚠ CHECK'}`);
+    console.log('========================================');
+
     // Display results
     displayCalculatorResults({
         initialAmount: amount,

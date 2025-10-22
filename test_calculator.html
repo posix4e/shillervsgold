@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculator Verification Tests</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #667eea;
+        }
+        .pass {
+            border-left-color: #28a745;
+        }
+        .fail {
+            border-left-color: #dc3545;
+        }
+        h1 {
+            color: #1e3c72;
+        }
+        .result {
+            margin: 5px 0;
+        }
+        .expected {
+            color: #28a745;
+        }
+        .actual {
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <h1>Investment Calculator Verification Tests</h1>
+    <div id="tests"></div>
+
+    <script>
+        // Test cases with known outcomes
+        const tests = [
+            {
+                name: "Simple doubling in 10 years",
+                initialAmount: 10000,
+                startPrice: 100,
+                endPrice: 200,
+                years: 10,
+                expectedCAGR: 7.18, // (2^(1/10) - 1) * 100
+                expectedFinal: 20000
+            },
+            {
+                name: "10% annual return for 5 years",
+                initialAmount: 1000,
+                startPrice: 100,
+                endPrice: 161.05, // 1.61051x = 1.10^5
+                years: 5,
+                expectedCAGR: 10.0,
+                expectedFinal: 1610.51
+            },
+            {
+                name: "Tripling in 20 years",
+                initialAmount: 5000,
+                startPrice: 50,
+                endPrice: 150,
+                years: 20,
+                expectedCAGR: 5.65, // (3^(1/20) - 1) * 100
+                expectedFinal: 15000
+            },
+            {
+                name: "7% annual return for 30 years",
+                initialAmount: 10000,
+                startPrice: 1000,
+                endPrice: 7612.26, // 1.07^30 = 7.61226
+                years: 30,
+                expectedCAGR: 7.0,
+                expectedFinal: 76122.55
+            },
+            {
+                name: "Loss: 50% over 10 years",
+                initialAmount: 10000,
+                startPrice: 200,
+                endPrice: 100,
+                years: 10,
+                expectedCAGR: -6.70, // (0.5^(1/10) - 1) * 100
+                expectedFinal: 5000
+            }
+        ];
+
+        function runTest(test) {
+            // Calculate using the same logic as app.js
+            const finalValue = (test.initialAmount / test.startPrice) * test.endPrice;
+            const totalReturn = finalValue - test.initialAmount;
+            const returnPercentage = ((finalValue - test.initialAmount) / test.initialAmount) * 100;
+            const annualizedReturn = Math.pow(finalValue / test.initialAmount, 1 / test.years) - 1;
+            const annualizedReturnPercent = annualizedReturn * 100;
+
+            // Verify: if we compound the CAGR, do we get back to the final value?
+            const verificationValue = test.initialAmount * Math.pow(1 + annualizedReturn, test.years);
+            const verificationDiff = Math.abs(verificationValue - finalValue);
+
+            // Check if results match expectations (within 0.1% tolerance)
+            const cagrMatch = Math.abs(annualizedReturnPercent - test.expectedCAGR) < 0.1;
+            const finalMatch = Math.abs(finalValue - test.expectedFinal) < 1;
+            const verificationPass = verificationDiff < 0.01;
+
+            const passed = cagrMatch && finalMatch && verificationPass;
+
+            return {
+                passed,
+                test,
+                results: {
+                    finalValue,
+                    totalReturn,
+                    returnPercentage,
+                    annualizedReturnPercent,
+                    verificationValue,
+                    verificationDiff,
+                    cagrMatch,
+                    finalMatch,
+                    verificationPass
+                }
+            };
+        }
+
+        function displayResults() {
+            const testsDiv = document.getElementById('tests');
+            let passCount = 0;
+            let failCount = 0;
+
+            tests.forEach((test, index) => {
+                const result = runTest(test);
+                if (result.passed) passCount++;
+                else failCount++;
+
+                const testDiv = document.createElement('div');
+                testDiv.className = `test ${result.passed ? 'pass' : 'fail'}`;
+
+                testDiv.innerHTML = `
+                    <h3>${result.passed ? '✓' : '✗'} Test ${index + 1}: ${test.name}</h3>
+                    <div class="result"><strong>Input:</strong> $${test.initialAmount} over ${test.years} years</div>
+                    <div class="result"><strong>Price change:</strong> $${test.startPrice} → $${test.endPrice} (${(test.endPrice/test.startPrice).toFixed(4)}x)</div>
+                    <div class="result expected"><strong>Expected CAGR:</strong> ${test.expectedCAGR.toFixed(2)}%</div>
+                    <div class="result actual"><strong>Actual CAGR:</strong> ${result.results.annualizedReturnPercent.toFixed(2)}% ${result.results.cagrMatch ? '✓' : '✗'}</div>
+                    <div class="result expected"><strong>Expected Final:</strong> $${test.expectedFinal.toFixed(2)}</div>
+                    <div class="result actual"><strong>Actual Final:</strong> $${result.results.finalValue.toFixed(2)} ${result.results.finalMatch ? '✓' : '✗'}</div>
+                    <div class="result"><strong>Verification:</strong> $${test.initialAmount} × (1.${(result.results.annualizedReturnPercent/100).toFixed(6)})^${test.years} = $${result.results.verificationValue.toFixed(2)}</div>
+                    <div class="result"><strong>Verification Diff:</strong> $${result.results.verificationDiff.toFixed(6)} ${result.results.verificationPass ? '✓' : '✗'}</div>
+                    <div class="result"><strong>Total Return:</strong> ${result.results.returnPercentage.toFixed(2)}%</div>
+                `;
+
+                testsDiv.appendChild(testDiv);
+            });
+
+            const summary = document.createElement('div');
+            summary.className = 'test';
+            summary.innerHTML = `
+                <h2>Summary</h2>
+                <div class="result" style="color: #28a745;"><strong>Passed:</strong> ${passCount}/${tests.length}</div>
+                <div class="result" style="color: #dc3545;"><strong>Failed:</strong> ${failCount}/${tests.length}</div>
+            `;
+            testsDiv.insertBefore(summary, testsDiv.firstChild);
+        }
+
+        displayResults();
+    </script>
+</body>
+</html>
