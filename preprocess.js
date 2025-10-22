@@ -101,13 +101,13 @@ async function processStockData() {
         .filter(item => item && (item.date || item.Date)) // Filter out invalid items
         .map(item => ({
             date: parseShillerDate(item.date || item.Date),
-            sp500: parseFloat(item.P || item['S&P 500']),
-            cape: parseFloat(item.cape || item['CAPE Ratio']),
-            dividend: parseFloat(item.D || item['Dividend']),
-            earnings: parseFloat(item.E || item['Earnings']),
+            sp500: parseFloat(item.sp500 || item.P || item['S&P 500']),
+            cape: parseFloat(item.cape || item['CAPE Ratio']) || 0, // Default to 0 if null
+            dividend: parseFloat(item.dividend || item.D || item['Dividend']),
+            earnings: parseFloat(item.earnings || item.E || item['Earnings']),
             cpi: parseFloat(item.cpi || item['CPI'])
         }))
-        .filter(item => !isNaN(item.date.getTime()) && item.sp500 > 0)
+        .filter(item => !isNaN(item.date.getTime()) && !isNaN(item.sp500) && item.sp500 > 0)
         .sort((a, b) => a.date - b.date);
 
     // Reduce resolution
