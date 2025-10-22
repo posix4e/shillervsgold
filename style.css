@@ -78,30 +78,52 @@ header h1 {
     border-color: #667eea;
 }
 
-.custom-range {
+.custom-range,
+.event-range {
     display: flex;
     gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
 }
 
-.custom-range button {
+.event-range {
+    padding: 15px;
+    background: white;
+    border-radius: 8px;
+    margin-top: 10px;
+}
+
+.custom-range button,
+.event-range button {
     background: #667eea;
     color: white;
     border-color: #667eea;
     font-weight: 600;
 }
 
-.custom-range button:hover {
+.custom-range button:hover,
+.event-range button:hover {
     background: #5568d3;
 }
 
-.chart-container {
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+    gap: 40px;
     padding: 40px;
-    position: relative;
-    height: 600px;
 }
 
-#mainChart {
-    max-height: 600px;
+.chart-container {
+    position: relative;
+    height: 400px;
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.chart-container canvas {
+    max-height: 100%;
 }
 
 .stats-panel {

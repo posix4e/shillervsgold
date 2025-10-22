@@ -90,18 +90,24 @@ async function processStockData() {
     console.log('Fetching stock market data...');
     const url = 'https://posix4e.github.io/shiller_wrapper_data/data/stock_market_data.json';
     const json = await fetchData(url);
-    const data = JSON.parse(json);
+    let data = JSON.parse(json);
+
+    // Handle if data is wrapped in an object
+    if (!Array.isArray(data)) {
+        data = data.data || Object.values(data);
+    }
 
     const processed = data
+        .filter(item => item && (item.date || item.Date)) // Filter out invalid items
         .map(item => ({
-            date: parseShillerDate(item.Date),
-            sp500: parseFloat(item['S&P 500']),
-            cape: parseFloat(item['CAPE Ratio']),
-            dividend: parseFloat(item['Dividend']),
-            earnings: parseFloat(item['Earnings']),
-            cpi: parseFloat(item['CPI'])
+            date: parseShillerDate(item.date || item.Date),
+            sp500: parseFloat(item.P || item['S&P 500']),
+            cape: parseFloat(item.cape || item['CAPE Ratio']),
+            dividend: parseFloat(item.D || item['Dividend']),
+            earnings: parseFloat(item.E || item['Earnings']),
+            cpi: parseFloat(item.cpi || item['CPI'])
         }))
-        .filter(item => !isNaN(item.date.getTime()) && !isNaN(item.cape) && item.cape > 0)
+        .filter(item => !isNaN(item.date.getTime()) && item.sp500 > 0)
         .sort((a, b) => a.date - b.date);
 
     // Reduce resolution
@@ -122,13 +128,20 @@ async function processHomeData() {
     console.log('Fetching home price data...');
     const url = 'https://posix4e.github.io/shiller_wrapper_data/data/home_price_data.json';
     const json = await fetchData(url);
-    const data = JSON.parse(json);
+    let parsed = JSON.parse(json);
+
+    // Extract data array from metadata wrapper
+    let data = parsed.data || parsed;
+    if (!Array.isArray(data)) {
+        data = Object.values(data);
+    }
 
     const processed = data
+        .filter(item => item && item['Unnamed: 0'] && typeof item['Unnamed: 0'] === 'number') // Filter for valid year entries
         .map(item => ({
-            date: parseShillerDate(item.Date),
-            realPrice: parseFloat(item['Real Home Price Index']),
-            buildingCost: parseFloat(item['Building Cost Index'])
+            date: new Date(item['Unnamed: 0'], 0, 1), // Year is in Unnamed: 0
+            realPrice: parseFloat(item['Real']), // Real price index in 'Real' column
+            buildingCost: parseFloat(item['Real.1']) // Building cost in 'Real.1' column
         }))
         .filter(item => !isNaN(item.date.getTime()) && !isNaN(item.realPrice) && item.realPrice > 0)
         .sort((a, b) => a.date - b.date);
@@ -149,21 +162,27 @@ async function processHomeData() {
 // Fetch and process gold price data
 async function processGoldData() {
     console.log('Fetching gold price data...');
-    const url = 'https://freegoldapi.com/api/gold-silver-enriched.csv';
+    const url = 'https://freegoldapi.com/data/latest.csv';
     const csv = await fetchData(url);
-    const lines = csv.split('\n').slice(1); // Skip header
+    const lines = csv.trim().split('\n');
+
+    console.log(`Gold CSV has ${lines.length} lines`);
+    console.log('Gold CSV header:', lines[0]);
+    console.log('Gold CSV first data row:', lines[1]);
 
     const processed = lines
+        .slice(1) // Skip header
         .filter(line => line.trim())
         .map(line => {
             const parts = line.split(',');
-            return {
-                date: new Date(parts[0]),
-                price: parseFloat(parts[1])
-            };
+            const date = new Date(parts[0].trim());
+            const price = parseFloat(parts[1]);
+            return { date, price };
         })
         .filter(item => !isNaN(item.date.getTime()) && !isNaN(item.price) && item.price > 0)
         .sort((a, b) => a.date - b.date);
+
+    console.log(`Parsed ${processed.length} valid gold price entries`);
 
     // Reduce resolution
     const reduced = reduceResolution(processed, item => item.date);
@@ -295,7 +314,12 @@ async function main() {
 
         // Compute statistics
         const stats = computeStats(stockData, goldData);
-        stats.dataPoints.home = homeData.length;
+        if (stats) {
+            stats.dataPoints.home = homeData.length;
+        } else {
+            console.error('Failed to compute statistics - insufficient data');
+            process.exit(1);
+        }
 
         // Save processed data
         console.log('Saving processed data...');

@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -17,23 +18,43 @@
 
         <div class="controls">
             <div class="control-group">
-                <label for="chartType">Chart Type:</label>
-                <select id="chartType">
-                    <option value="cape-gold">CAPE / Gold Ratio</option>
-                    <option value="home-gold">Home Price / Gold Ratio</option>
-                    <option value="sp500-gold">S&P 500 / Gold Ratio</option>
-                    <option value="all-normalized">All Assets (Normalized)</option>
-                </select>
-            </div>
-
-            <div class="control-group">
                 <label for="dateRange">Date Range:</label>
                 <select id="dateRange">
                     <option value="all">All Available Data</option>
                     <option value="50">Last 50 Years</option>
                     <option value="100">Last 100 Years</option>
+                    <option value="event">Historical Event Period</option>
                     <option value="custom">Custom Range</option>
                 </select>
+            </div>
+
+            <div id="eventRange" class="event-range" style="display: none;">
+                <div class="control-group">
+                    <label for="eventPeriod">Event Period:</label>
+                    <select id="eventPeriod">
+                        <option value="1929-crash-10">1929 Crash (±10 years)</option>
+                        <option value="gold-standard-10">Gold Standard Abandoned (±10 years)</option>
+                        <option value="oil-crisis-10">1973 Oil Crisis (±10 years)</option>
+                        <option value="1987-crash-10">1987 Black Monday (±10 years)</option>
+                        <option value="dotcom-10">Dot-com Bubble (±10 years)</option>
+                        <option value="housing-crisis-10">2007-2008 Housing Crisis (±10 years)</option>
+                        <option value="covid-10">COVID-19 Crash (±10 years)</option>
+                        <option value="gold-to-oil">Gold Standard → Oil Crisis (1923-1973)</option>
+                        <option value="oil-to-dotcom">Oil Crisis → Dot-com (1973-2000)</option>
+                        <option value="dotcom-to-housing">Dot-com → Housing Crisis (2000-2008)</option>
+                        <option value="housing-to-covid">Housing → COVID (2008-2020)</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label for="eventYears">Years Around Event:</label>
+                    <select id="eventYears">
+                        <option value="5">±5 years</option>
+                        <option value="10" selected>±10 years</option>
+                        <option value="20">±20 years</option>
+                        <option value="30">±30 years</option>
+                    </select>
+                </div>
+                <button id="applyEvent">Apply</button>
             </div>
 
             <div id="customRange" class="custom-range" style="display: none;">
@@ -43,8 +64,31 @@
             </div>
         </div>
 
-        <div class="chart-container">
-            <canvas id="mainChart"></canvas>
+        <div class="charts-grid">
+            <div class="chart-container">
+                <canvas id="chart-cape-gold"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="chart-home-gold"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="chart-sp500-gold"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="chart-all-normalized"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="chart-cape-usd"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="chart-home-usd"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="chart-sp500-usd"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="chart-gold-usd"></canvas>
+            </div>
         </div>
 
         <div class="stats-panel">

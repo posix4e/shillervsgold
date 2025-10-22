@@ -4,7 +4,18 @@ let homeGoldData = [];
 let sp500GoldData = [];
 let stats = null;
 let historicalEvents = [];
-let chart = null;
+let charts = {};
+
+// Event dates for period selection
+const eventDates = {
+    '1929-crash': new Date(1929, 9, 1),
+    'gold-standard': new Date(1933, 2, 1),
+    'oil-crisis': new Date(1973, 0, 1),
+    '1987-crash': new Date(1987, 9, 1),
+    'dotcom': new Date(2000, 2, 1),
+    'housing-crisis': new Date(2007, 9, 1),
+    'covid': new Date(2020, 2, 1)
+};
 
 // Initialize the application
 async function init() {
@@ -15,13 +26,31 @@ async function init() {
         ]);
 
         updateStats();
-        createChart();
+        createAllCharts();
         setupEventListeners();
         hideLoading();
     } catch (error) {
         console.error('Error initializing app:', error);
         showError('Failed to load data. Please refresh the page.');
     }
+}
+
+// Create all charts at once
+function createAllCharts() {
+    const chartTypes = [
+        'cape-gold',
+        'home-gold',
+        'sp500-gold',
+        'all-normalized',
+        'cape-usd',
+        'home-usd',
+        'sp500-usd',
+        'gold-usd'
+    ];
+
+    chartTypes.forEach(type => {
+        createChart(type);
+    });
 }
 
 // Load preprocessed data from static JSON files
@@ -65,78 +94,89 @@ async function loadPreprocessedData() {
     }
 }
 
-// Create the chart
-function createChart() {
-    const ctx = document.getElementById('mainChart').getContext('2d');
-    const chartType = document.getElementById('chartType').value;
+// Create a single chart
+function createChart(chartType) {
+    const canvasId = `chart-${chartType}`;
+    const canvas = document.getElementById(canvasId);
 
-    if (chart) {
-        chart.destroy();
+    if (!canvas) {
+        console.error(`Canvas not found: ${canvasId}`);
+        return;
     }
 
+    // Destroy existing chart if it exists
+    if (charts[chartType]) {
+        charts[chartType].destroy();
+    }
+
+    const ctx = canvas.getContext('2d');
     const datasets = getDatasets(chartType);
     const annotations = createAnnotations();
 
-    chart = new Chart(ctx, {
-        type: 'line',
-        data: { datasets },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                mode: 'index',
-                intersect: false,
-            },
-            plugins: {
-                title: {
-                    display: true,
-                    text: getChartTitle(chartType),
-                    font: { size: 18, weight: 'bold' }
+    try {
+        charts[chartType] = new Chart(ctx, {
+            type: 'line',
+            data: { datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
                 },
-                legend: {
-                    display: true,
-                    position: 'top',
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            let label = context.dataset.label || '';
-                            if (label) {
-                                label += ': ';
+                plugins: {
+                    title: {
+                        display: true,
+                        text: getChartTitle(chartType),
+                        font: { size: 18, weight: 'bold' }
+                    },
+                    legend: {
+                        display: true,
+                        position: 'top',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                label += context.parsed.y.toFixed(2);
+                                return label;
                             }
-                            label += context.parsed.y.toFixed(2);
-                            return label;
-                        }
-                    }
-                },
-                annotation: {
-                    annotations: annotations
-                }
-            },
-            scales: {
-                x: {
-                    type: 'time',
-                    time: {
-                        unit: 'year',
-                        displayFormats: {
-                            year: 'yyyy'
                         }
                     },
-                    title: {
-                        display: true,
-                        text: 'Year'
+                    annotation: {
+                        annotations: annotations
                     }
                 },
-                y: {
-                    beginAtZero: false,
-                    title: {
-                        display: true,
-                        text: 'Ratio / Value'
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'year',
+                            displayFormats: {
+                                year: 'yyyy'
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Year'
+                        }
+                    },
+                    y: {
+                        beginAtZero: false,
+                        title: {
+                            display: true,
+                            text: 'Ratio / Value'
+                        }
                     }
                 }
             }
-        }
-    });
+        });
+    } catch (error) {
+        console.error(`Error creating chart ${chartType}:`, error);
+    }
 }
 
 // Get datasets based on chart type
@@ -152,6 +192,14 @@ function getDatasets(chartType) {
             return getSP500GoldDataset(dateRange);
         case 'all-normalized':
             return getAllNormalizedDatasets(dateRange);
+        case 'cape-usd':
+            return getCapeUSDDataset(dateRange);
+        case 'home-usd':
+            return getHomeUSDDataset(dateRange);
+        case 'sp500-usd':
+            return getSP500USDDataset(dateRange);
+        case 'gold-usd':
+            return getGoldUSDDataset(dateRange);
         default:
             return getCapeGoldDataset(dateRange);
     }
@@ -279,6 +327,8 @@ function getDateRange() {
                 start: new Date(now.getFullYear() - 100, 0, 1),
                 end: now
             };
+        case 'event':
+            return getEventDateRange();
         case 'custom':
             const startYear = parseInt(document.getElementById('startYear').value) || 1871;
             const endYear = parseInt(document.getElementById('endYear').value) || now.getFullYear();
@@ -292,6 +342,51 @@ function getDateRange() {
                 end: now
             };
     }
+}
+
+// Get date range for event-based periods
+function getEventDateRange() {
+    const eventPeriod = document.getElementById('eventPeriod').value;
+    const eventYears = parseInt(document.getElementById('eventYears').value) || 10;
+
+    // Handle event ranges (between two events)
+    if (eventPeriod === 'gold-to-oil') {
+        return {
+            start: new Date(eventDates['gold-standard'].getFullYear() - 10, 0, 1),
+            end: new Date(eventDates['oil-crisis'].getFullYear(), 11, 31)
+        };
+    } else if (eventPeriod === 'oil-to-dotcom') {
+        return {
+            start: eventDates['oil-crisis'],
+            end: eventDates['dotcom']
+        };
+    } else if (eventPeriod === 'dotcom-to-housing') {
+        return {
+            start: eventDates['dotcom'],
+            end: eventDates['housing-crisis']
+        };
+    } else if (eventPeriod === 'housing-to-covid') {
+        return {
+            start: eventDates['housing-crisis'],
+            end: eventDates['covid']
+        };
+    }
+
+    // Handle single event periods (±X years)
+    const eventKey = eventPeriod.replace('-10', '');
+    const eventDate = eventDates[eventKey];
+
+    if (!eventDate) {
+        return {
+            start: new Date(1871, 0, 1),
+            end: new Date()
+        };
+    }
+
+    return {
+        start: new Date(eventDate.getFullYear() - eventYears, eventDate.getMonth(), 1),
+        end: new Date(eventDate.getFullYear() + eventYears, eventDate.getMonth(), 28)
+    };
 }
 
 // Create annotations for historical events
@@ -328,15 +423,92 @@ function createAnnotations() {
     return annotations;
 }
 
+// USD-based dataset functions
+function getCapeUSDDataset(dateRange) {
+    const filtered = filterByDateRange(capeGoldData, dateRange);
+    const data = filtered.map(item => ({
+        x: item.date,
+        y: item.cape || 0
+    }));
+
+    return [{
+        label: 'CAPE Ratio',
+        data: data,
+        borderColor: '#667eea',
+        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.1
+    }];
+}
+
+function getHomeUSDDataset(dateRange) {
+    const filtered = filterByDateRange(homeGoldData, dateRange);
+    const data = filtered.map(item => ({
+        x: item.date,
+        y: item.homePrice || 0
+    }));
+
+    return [{
+        label: 'Real Home Price Index',
+        data: data,
+        borderColor: '#28a745',
+        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.1
+    }];
+}
+
+function getSP500USDDataset(dateRange) {
+    const filtered = filterByDateRange(sp500GoldData, dateRange);
+    const data = filtered.map(item => ({
+        x: item.date,
+        y: item.sp500 || 0
+    }));
+
+    return [{
+        label: 'S&P 500 (Real)',
+        data: data,
+        borderColor: '#dc3545',
+        backgroundColor: 'rgba(220, 53, 69, 0.1)',
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.1
+    }];
+}
+
+function getGoldUSDDataset(dateRange) {
+    const filtered = filterByDateRange(capeGoldData, dateRange); // Using cape data which has gold prices
+    const data = filtered.map(item => ({
+        x: item.date,
+        y: item.gold || 0
+    }));
+
+    return [{
+        label: 'Gold Price (USD)',
+        data: data,
+        borderColor: '#ffc107',
+        backgroundColor: 'rgba(255, 193, 7, 0.1)',
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.1
+    }];
+}
+
 // Get chart title based on type
 function getChartTitle(chartType) {
     const titles = {
         'cape-gold': 'CAPE Ratio / Gold Price Over Time',
         'home-gold': 'Real Home Price Index / Gold Price Over Time',
         'sp500-gold': 'S&P 500 / Gold Price Over Time',
-        'all-normalized': 'All Assets vs Gold (Normalized to 100)'
+        'all-normalized': 'All Assets vs Gold (Normalized to 100)',
+        'cape-usd': 'CAPE Ratio Over Time',
+        'home-usd': 'Real Home Price Index Over Time',
+        'sp500-usd': 'S&P 500 (Real) Over Time',
+        'gold-usd': 'Gold Price in USD Over Time'
     };
-    return titles[chartType] || 'Market Valuation vs Gold';
+    return titles[chartType] || 'Market Valuation';
 }
 
 // Update statistics panel
@@ -362,35 +534,68 @@ function updateStats() {
 
 // Setup event listeners
 function setupEventListeners() {
-    document.getElementById('chartType').addEventListener('change', createChart);
     document.getElementById('dateRange').addEventListener('change', function() {
         const customRange = document.getElementById('customRange');
+        const eventRange = document.getElementById('eventRange');
+
+        // Hide all range controls first
+        customRange.style.display = 'none';
+        eventRange.style.display = 'none';
+
         if (this.value === 'custom') {
             customRange.style.display = 'flex';
+        } else if (this.value === 'event') {
+            eventRange.style.display = 'flex';
         } else {
-            customRange.style.display = 'none';
-            createChart();
+            createAllCharts();
         }
     });
 
-    document.getElementById('applyRange').addEventListener('click', createChart);
+    document.getElementById('applyRange').addEventListener('click', createAllCharts);
+    document.getElementById('applyEvent').addEventListener('click', createAllCharts);
+
+    // Update charts when event period or years changes
+    document.getElementById('eventPeriod').addEventListener('change', function() {
+        // Auto-update when period changes
+        createAllCharts();
+    });
+
+    document.getElementById('eventYears').addEventListener('change', function() {
+        // Auto-update when years range changes
+        createAllCharts();
+    });
 }
 
 // Show loading state
 function showLoading() {
-    const container = document.querySelector('.chart-container');
-    container.innerHTML = '<div class="loading">Loading data...</div>';
+    const grid = document.querySelector('.charts-grid');
+    if (grid) {
+        // Just add a loading overlay without destroying canvases
+        let overlay = document.getElementById('loading-overlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'loading-overlay';
+            overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(102, 126, 234, 0.9); display: flex; align-items: center; justify-content: center; z-index: 9999; color: white; font-size: 24px;';
+            overlay.textContent = 'Loading data...';
+            document.body.appendChild(overlay);
+        }
+    }
 }
 
 // Hide loading state
 function hideLoading() {
-    // Chart replaces loading message
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) {
+        overlay.remove();
+    }
 }
 
 // Show error message
 function showError(message) {
-    const container = document.querySelector('.chart-container');
-    container.innerHTML = `<div class="loading" style="color: #dc3545;">${message}</div>`;
+    const grid = document.querySelector('.charts-grid');
+    if (grid) {
+        grid.innerHTML = `<div class="loading" style="color: #dc3545; grid-column: 1/-1; text-align: center; padding: 40px;">${message}</div>`;
+    }
 }
 
 // Start the application
