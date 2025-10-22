@@ -84,10 +84,57 @@
             </div>
         </div>
 
-        <div class="charts-grid">
-            <div class="chart-container">
-                <canvas id="chart-cape-gold"></canvas>
+        <div class="calculator-section">
+            <h2>Investment Return Calculator</h2>
+            <p class="calculator-description">Calculate how much your investment would be worth over the selected date range in Gold, Housing, or SPY (S&P 500). Use the date range controls above to select your investment period.</p>
+
+            <div class="calculator-inputs">
+                <div class="input-group">
+                    <label for="investmentAmount">Investment Amount ($)</label>
+                    <input type="number" id="investmentAmount" placeholder="10000" min="0" step="100" value="10000">
+                </div>
+
+                <div class="input-group">
+                    <label for="assetType">Asset Type</label>
+                    <select id="assetType">
+                        <option value="gold">Gold</option>
+                        <option value="home">Housing (Real Home Price Index)</option>
+                        <option value="sp500">SPY (S&P 500)</option>
+                    </select>
+                </div>
+
+                <button id="calculateBtn" class="calculate-button">Calculate Return</button>
             </div>
+
+            <div id="calculatorResults" class="calculator-results" style="display: none;">
+                <div class="result-card">
+                    <h3>Period</h3>
+                    <p id="periodDates" style="font-size: 1.2em;">-</p>
+                </div>
+                <div class="result-card">
+                    <h3>Initial Investment</h3>
+                    <p id="initialAmount">$0</p>
+                </div>
+                <div class="result-card">
+                    <h3>Final Value</h3>
+                    <p id="finalValue">$0</p>
+                </div>
+                <div class="result-card">
+                    <h3>Total Return</h3>
+                    <p id="totalReturn">$0</p>
+                </div>
+                <div class="result-card">
+                    <h3>Return Percentage</h3>
+                    <p id="returnPercentage">0%</p>
+                </div>
+                <div class="result-card">
+                    <h3>Annualized Return</h3>
+                    <p id="annualizedReturn">0%</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="charts-grid">
             <div class="chart-container">
                 <canvas id="chart-home-gold"></canvas>
             </div>

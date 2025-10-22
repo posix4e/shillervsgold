@@ -38,7 +38,6 @@ async function init() {
 // Create all charts at once
 function createAllCharts() {
     const chartTypes = [
-        'cape-gold',
         'home-gold',
         'sp500-gold',
         'all-normalized',
@@ -209,8 +208,6 @@ function getDatasets(chartType) {
     const dateRange = getDateRange();
 
     switch(chartType) {
-        case 'cape-gold':
-            return getCapeGoldDataset(dateRange);
         case 'home-gold':
             return getHomeGoldDataset(dateRange);
         case 'sp500-gold':
@@ -226,32 +223,13 @@ function getDatasets(chartType) {
         case 'gold-usd':
             return getGoldUSDDataset(dateRange);
         default:
-            return getCapeGoldDataset(dateRange);
+            return getHomeGoldDataset(dateRange);
     }
 }
 
 // Filter data by date range
 function filterByDateRange(data, dateRange) {
     return data.filter(item => item.date >= dateRange.start && item.date <= dateRange.end);
-}
-
-// CAPE / Gold ratio dataset
-function getCapeGoldDataset(dateRange) {
-    const filtered = filterByDateRange(capeGoldData, dateRange);
-    const data = filtered.map(item => ({
-        x: item.date,
-        y: item.value
-    }));
-
-    return [{
-        label: 'CAPE / Gold Ratio',
-        data: data,
-        borderColor: '#667eea',
-        backgroundColor: 'rgba(102, 126, 234, 0.1)',
-        borderWidth: 2,
-        pointRadius: 0,
-        tension: 0.1
-    }];
 }
 
 // Home Price / Gold ratio dataset
@@ -294,7 +272,6 @@ function getSP500GoldDataset(dateRange) {
 
 // All assets normalized to 100 at start date
 function getAllNormalizedDatasets(dateRange) {
-    const capeData = getCapeGoldDataset(dateRange)[0].data;
     const homeData = getHomeGoldDataset(dateRange)[0].data;
     const sp500Data = getSP500GoldDataset(dateRange)[0].data;
 
@@ -309,14 +286,6 @@ function getAllNormalizedDatasets(dateRange) {
     };
 
     return [
-        {
-            label: 'CAPE / Gold (Normalized)',
-            data: normalize(capeData),
-            borderColor: '#667eea',
-            borderWidth: 2,
-            pointRadius: 0,
-            tension: 0.1
-        },
         {
             label: 'Home / Gold (Normalized)',
             data: normalize(homeData),
@@ -524,7 +493,6 @@ function getGoldUSDDataset(dateRange) {
 // Get chart title based on type
 function getChartTitle(chartType) {
     const titles = {
-        'cape-gold': 'CAPE Ratio / Gold Price Over Time',
         'home-gold': 'Real Home Price Index / Gold Price Over Time',
         'sp500-gold': 'S&P 500 / Gold Price Over Time',
         'all-normalized': 'All Assets vs Gold (Normalized to 100)',
@@ -589,6 +557,148 @@ function setupEventListeners() {
         // Auto-update when years range changes
         createAllCharts();
     });
+
+    // Calculator event listener
+    document.getElementById('calculateBtn').addEventListener('click', calculateInvestmentReturn);
+}
+
+// Calculate investment return
+function calculateInvestmentReturn() {
+    const amount = parseFloat(document.getElementById('investmentAmount').value);
+    const assetType = document.getElementById('assetType').value;
+
+    // Validate inputs
+    if (!amount || amount <= 0) {
+        alert('Please enter a valid investment amount');
+        return;
+    }
+
+    // Get the current date range from the page controls
+    const dateRange = getDateRange();
+    const startDate = dateRange.start;
+    const endDate = dateRange.end;
+
+    if (startDate >= endDate) {
+        alert('Invalid date range. Please adjust the date range controls above.');
+        return;
+    }
+
+    // Get the appropriate dataset based on asset type
+    let data;
+    let assetName;
+
+    switch(assetType) {
+        case 'gold':
+            data = capeGoldData; // Has gold prices
+            assetName = 'Gold';
+            break;
+        case 'home':
+            data = homeGoldData; // Has home prices
+            assetName = 'Housing';
+            break;
+        case 'sp500':
+            data = sp500GoldData; // Has S&P 500 prices
+            assetName = 'S&P 500';
+            break;
+        default:
+            alert('Invalid asset type');
+            return;
+    }
+
+    // Filter data to the date range
+    const filteredData = filterByDateRange(data, dateRange);
+
+    if (filteredData.length < 2) {
+        alert('Not enough data points in the selected date range. Please select a longer period.');
+        return;
+    }
+
+    // Get first and last data points in the range
+    const startPoint = filteredData[0];
+    const endPoint = filteredData[filteredData.length - 1];
+
+    // Calculate returns
+    const startPrice = getAssetPrice(startPoint, assetType);
+    const endPrice = getAssetPrice(endPoint, assetType);
+
+    if (!startPrice || !endPrice || startPrice <= 0 || endPrice <= 0) {
+        alert('Invalid price data for the selected dates');
+        return;
+    }
+
+    const finalValue = (amount / startPrice) * endPrice;
+    const totalReturn = finalValue - amount;
+    const returnPercentage = ((finalValue - amount) / amount) * 100;
+
+    // Calculate annualized return
+    const years = (endPoint.date - startPoint.date) / (1000 * 60 * 60 * 24 * 365.25);
+    const annualizedReturn = years > 0 ? (Math.pow(finalValue / amount, 1 / years) - 1) * 100 : 0;
+
+    // Display results
+    displayCalculatorResults({
+        initialAmount: amount,
+        finalValue: finalValue,
+        totalReturn: totalReturn,
+        returnPercentage: returnPercentage,
+        annualizedReturn: annualizedReturn,
+        assetName: assetName,
+        startDate: startPoint.date,
+        endDate: endPoint.date
+    });
+}
+
+// Find closest data point to a given date
+function findClosestDataPoint(data, targetDate, assetType) {
+    let closest = null;
+    let minDiff = Infinity;
+
+    for (const point of data) {
+        const diff = Math.abs(point.date - targetDate);
+        if (diff < minDiff) {
+            minDiff = diff;
+            closest = point;
+        }
+    }
+
+    return closest;
+}
+
+// Get the asset price from a data point
+function getAssetPrice(dataPoint, assetType) {
+    switch(assetType) {
+        case 'gold':
+            return dataPoint.gold;
+        case 'home':
+            return dataPoint.homePrice;
+        case 'sp500':
+            return dataPoint.sp500;
+        default:
+            return null;
+    }
+}
+
+// Display calculator results
+function displayCalculatorResults(results) {
+    const resultsDiv = document.getElementById('calculatorResults');
+
+    // Format dates
+    const startDateStr = results.startDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+    const endDateStr = results.endDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+
+    document.getElementById('periodDates').textContent = `${startDateStr} → ${endDateStr}`;
+    document.getElementById('initialAmount').textContent = `$${results.initialAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    document.getElementById('finalValue').textContent = `$${results.finalValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    document.getElementById('totalReturn').textContent = `$${results.totalReturn.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    document.getElementById('returnPercentage').textContent = `${results.returnPercentage.toFixed(2)}%`;
+    document.getElementById('annualizedReturn').textContent = `${results.annualizedReturn.toFixed(2)}%`;
+
+    // Color code the returns
+    const returnColor = results.totalReturn >= 0 ? '#28a745' : '#dc3545';
+    document.getElementById('totalReturn').style.color = returnColor;
+    document.getElementById('returnPercentage').style.color = returnColor;
+    document.getElementById('annualizedReturn').style.color = returnColor;
+
+    resultsDiv.style.display = 'grid';
 }
 
 // Show loading state
