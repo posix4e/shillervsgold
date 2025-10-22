@@ -86,7 +86,7 @@
 
         <div class="calculator-section">
             <h2>Investment Return Calculator</h2>
-            <p class="calculator-description">Calculate how much your investment would be worth over the selected date range in Gold, Housing, or the S&P 500 index. Use the date range controls above to select your investment period.</p>
+            <p class="calculator-description">Calculate investment returns over the selected date range. Choose between <strong>nominal</strong> (actual dollars) and <strong>real</strong> (inflation-adjusted) returns. Use the date range controls above to select your investment period.</p>
 
             <div class="calculator-inputs">
                 <div class="input-group">
@@ -98,8 +98,16 @@
                     <label for="assetType">Asset Type</label>
                     <select id="assetType">
                         <option value="gold">Gold</option>
-                        <option value="home">Housing (Real Home Price Index)</option>
+                        <option value="home">Housing</option>
                         <option value="sp500">S&P 500</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label for="returnMode">Return Type</label>
+                    <select id="returnMode">
+                        <option value="real">Real (Inflation-Adjusted)</option>
+                        <option value="nominal">Nominal (Actual Dollars)</option>
                     </select>
                 </div>
 

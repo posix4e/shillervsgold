@@ -215,45 +215,131 @@ function getGoldPrice(goldData, targetDate) {
     return closest.price;
 }
 
+// Get CPI for a specific date (nearest match)
+function getCPI(stockData, targetDate) {
+    if (stockData.length === 0) return null;
+
+    let closest = stockData[0];
+    let minDiff = Math.abs(targetDate - new Date(stockData[0].date));
+
+    for (const stock of stockData) {
+        const diff = Math.abs(targetDate - new Date(stock.date));
+        if (diff < minDiff) {
+            minDiff = diff;
+            closest = stock;
+        }
+    }
+
+    return closest.cpi;
+}
+
+// Adjust gold prices for inflation (convert nominal to real)
+function adjustGoldForInflation(goldData, stockData) {
+    console.log('Adjusting gold prices for inflation...');
+
+    if (goldData.length === 0 || stockData.length === 0) {
+        console.warn('Cannot adjust gold: missing data');
+        return goldData;
+    }
+
+    // Use the latest CPI as the base (most recent = 100 equivalent)
+    const latestStock = stockData[stockData.length - 1];
+    const baseCPI = latestStock.cpi;
+
+    console.log(`Using base CPI: ${baseCPI} (from ${new Date(latestStock.date).toDateString()})`);
+
+    const adjustedGold = goldData.map(gold => {
+        const date = new Date(gold.date);
+        const cpi = getCPI(stockData, date);
+
+        if (!cpi || cpi === 0) {
+            console.warn(`No CPI found for ${date.toDateString()}, skipping`);
+            return null;
+        }
+
+        // Convert nominal to real: real_price = nominal_price * (base_CPI / current_CPI)
+        const realPrice = gold.price * (baseCPI / cpi);
+
+        return {
+            ...gold,
+            price: realPrice,
+            nominalPrice: gold.price,
+            cpi: cpi
+        };
+    }).filter(item => item !== null);
+
+    console.log(`Adjusted ${adjustedGold.length} gold prices for inflation`);
+    console.log(`Example: Gold on ${new Date(goldData[0].date).toDateString()}`);
+    console.log(`  Nominal: $${goldData[0].price.toFixed(2)}`);
+    console.log(`  Real: $${adjustedGold[0].price.toFixed(2)}`);
+
+    return adjustedGold;
+}
+
 // Compute ratios and merged datasets
 function computeRatios(stockData, homeData, goldData) {
     console.log('Computing ratios...');
 
+    // Get both real and nominal gold prices
+    const realGoldData = adjustGoldForInflation(goldData, stockData);
+
+    // Use the latest CPI as base for converting real to nominal
+    const baseCPI = stockData[stockData.length - 1].cpi;
+
     const capeGold = stockData.map(item => {
         const date = new Date(item.date);
-        const goldPrice = getGoldPrice(goldData, date);
-        if (!goldPrice || goldPrice === 0) return null;
+        const realGoldPrice = getGoldPrice(realGoldData, date);
+        const nominalGoldPrice = getGoldPrice(goldData, date);
+        if (!realGoldPrice || realGoldPrice === 0) return null;
         return {
             date: item.date,
-            value: item.cape / goldPrice,
+            value: item.cape / realGoldPrice,
             cape: item.cape,
-            gold: goldPrice
+            goldReal: realGoldPrice,
+            goldNominal: nominalGoldPrice
         };
     }).filter(item => item !== null);
 
     const homeGold = homeData.map(item => {
         const date = new Date(item.date);
-        const goldPrice = getGoldPrice(goldData, date);
-        if (!goldPrice || goldPrice === 0) return null;
+        const realGoldPrice = getGoldPrice(realGoldData, date);
+        const nominalGoldPrice = getGoldPrice(goldData, date);
+        const cpi = getCPI(stockData, date);
+        if (!realGoldPrice || realGoldPrice === 0 || !cpi) return null;
+
+        // Calculate nominal home price: real_price * (current_CPI / base_CPI)
+        const nominalHomePrice = item.realPrice * (cpi / baseCPI);
+
         return {
             date: item.date,
-            value: item.realPrice / goldPrice,
-            homePrice: item.realPrice,
-            gold: goldPrice
+            value: item.realPrice / realGoldPrice,
+            homePriceReal: item.realPrice,
+            homePriceNominal: nominalHomePrice,
+            goldReal: realGoldPrice,
+            goldNominal: nominalGoldPrice
         };
     }).filter(item => item !== null);
 
     const sp500Gold = stockData.map(item => {
         const date = new Date(item.date);
-        const goldPrice = getGoldPrice(goldData, date);
-        if (!goldPrice || goldPrice === 0) return null;
+        const realGoldPrice = getGoldPrice(realGoldData, date);
+        const nominalGoldPrice = getGoldPrice(goldData, date);
+        if (!realGoldPrice || realGoldPrice === 0) return null;
+
+        // Calculate nominal S&P 500: real_price * (current_CPI / base_CPI)
+        const nominalSP500 = item.sp500 * (item.cpi / baseCPI);
+
         return {
             date: item.date,
-            value: item.sp500 / goldPrice,
-            sp500: item.sp500,
-            gold: goldPrice
+            value: item.sp500 / realGoldPrice,
+            sp500Real: item.sp500,
+            sp500Nominal: nominalSP500,
+            goldReal: realGoldPrice,
+            goldNominal: nominalGoldPrice
         };
     }).filter(item => item !== null);
+
+    console.log('Ratio calculation complete with both real and nominal prices');
 
     return { capeGold, homeGold, sp500Gold };
 }
@@ -266,8 +352,11 @@ function computeStats(stockData, goldData) {
         return null;
     }
 
+    // Adjust gold for inflation first
+    const realGoldData = adjustGoldForInflation(goldData, stockData);
+
     const latestStock = stockData[stockData.length - 1];
-    const latestGold = goldData[goldData.length - 1];
+    const latestGold = realGoldData[realGoldData.length - 1];
     const currentRatio = latestStock.cape / latestGold.price;
 
     // Calculate historical ratios for percentile

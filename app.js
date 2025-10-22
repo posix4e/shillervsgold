@@ -440,7 +440,7 @@ function getHomeUSDDataset(dateRange) {
     const filtered = filterByDateRange(homeGoldData, dateRange);
     const data = filtered.map(item => ({
         x: item.date,
-        y: item.homePrice || 0
+        y: item.homePriceReal || 0
     }));
 
     return [{
@@ -458,7 +458,7 @@ function getSP500USDDataset(dateRange) {
     const filtered = filterByDateRange(sp500GoldData, dateRange);
     const data = filtered.map(item => ({
         x: item.date,
-        y: item.sp500 || 0
+        y: item.sp500Real || 0
     }));
 
     return [{
@@ -476,11 +476,11 @@ function getGoldUSDDataset(dateRange) {
     const filtered = filterByDateRange(capeGoldData, dateRange); // Using cape data which has gold prices
     const data = filtered.map(item => ({
         x: item.date,
-        y: item.gold || 0
+        y: item.goldReal || 0
     }));
 
     return [{
-        label: 'Gold Price (USD)',
+        label: 'Gold Price (Real, USD)',
         data: data,
         borderColor: '#ffc107',
         backgroundColor: 'rgba(255, 193, 7, 0.1)',
@@ -566,6 +566,7 @@ function setupEventListeners() {
 function calculateInvestmentReturn() {
     const amount = parseFloat(document.getElementById('investmentAmount').value);
     const assetType = document.getElementById('assetType').value;
+    const returnMode = document.getElementById('returnMode').value;
 
     // Validate inputs
     if (!amount || amount <= 0) {
@@ -618,8 +619,8 @@ function calculateInvestmentReturn() {
     const endPoint = filteredData[filteredData.length - 1];
 
     // Calculate returns
-    const startPrice = getAssetPrice(startPoint, assetType);
-    const endPrice = getAssetPrice(endPoint, assetType);
+    const startPrice = getAssetPrice(startPoint, assetType, returnMode);
+    const endPrice = getAssetPrice(endPoint, assetType, returnMode);
 
     if (!startPrice || !endPrice || startPrice <= 0 || endPrice <= 0) {
         alert('Invalid price data for the selected dates');
@@ -641,6 +642,7 @@ function calculateInvestmentReturn() {
     // Log calculation details for verification
     console.log('=== Investment Calculation Verification ===');
     console.log(`Asset: ${assetName}`);
+    console.log(`Return Mode: ${returnMode === 'real' ? 'Real (Inflation-Adjusted)' : 'Nominal (Actual Dollars)'}`);
     console.log(`Period: ${startPoint.date.toLocaleDateString()} to ${endPoint.date.toLocaleDateString()}`);
     console.log(`Years: ${years.toFixed(2)}`);
     console.log(`Start Price: $${startPrice.toFixed(2)}`);
@@ -665,6 +667,7 @@ function calculateInvestmentReturn() {
         returnPercentage: returnPercentage,
         annualizedReturn: annualizedReturn,
         assetName: assetName,
+        returnMode: returnMode,
         startDate: startPoint.date,
         endDate: endPoint.date
     });
@@ -687,14 +690,17 @@ function findClosestDataPoint(data, targetDate, assetType) {
 }
 
 // Get the asset price from a data point
-function getAssetPrice(dataPoint, assetType) {
+function getAssetPrice(dataPoint, assetType, returnMode) {
+    const mode = returnMode || 'real'; // Default to real if not specified
+    const suffix = mode === 'real' ? 'Real' : 'Nominal';
+
     switch(assetType) {
         case 'gold':
-            return dataPoint.gold;
+            return dataPoint['gold' + suffix];
         case 'home':
-            return dataPoint.homePrice;
+            return dataPoint['homePrice' + suffix];
         case 'sp500':
-            return dataPoint.sp500;
+            return dataPoint['sp500' + suffix];
         default:
             return null;
     }
@@ -707,8 +713,9 @@ function displayCalculatorResults(results) {
     // Format dates
     const startDateStr = results.startDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
     const endDateStr = results.endDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+    const modeLabel = results.returnMode === 'real' ? '(Real)' : '(Nominal)';
 
-    document.getElementById('periodDates').textContent = `${startDateStr} → ${endDateStr}`;
+    document.getElementById('periodDates').textContent = `${startDateStr} → ${endDateStr} ${modeLabel}`;
     document.getElementById('initialAmount').textContent = `$${results.initialAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
     document.getElementById('finalValue').textContent = `$${results.finalValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
     document.getElementById('totalReturn').textContent = `$${results.totalReturn.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
