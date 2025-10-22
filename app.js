@@ -26,7 +26,7 @@ async function init() {
         ]);
 
         updateStats();
-        createAllCharts();
+        createMainChart();
         setupEventListeners();
         hideLoading();
     } catch (error) {
@@ -35,21 +35,133 @@ async function init() {
     }
 }
 
-// Create all charts at once
-function createAllCharts() {
-    const chartTypes = [
-        'home-gold',
-        'sp500-gold',
-        'all-normalized',
-        'cape-usd',
-        'home-usd',
-        'sp500-usd',
-        'gold-usd'
-    ];
+// Create the main chart
+function createMainChart() {
+    const canvas = document.getElementById('main-chart');
 
-    chartTypes.forEach(type => {
-        createChart(type);
+    if (!canvas) {
+        console.error('Main chart canvas not found');
+        return;
+    }
+
+    // Destroy existing chart if it exists
+    if (charts['main']) {
+        charts['main'].destroy();
+    }
+
+    const ctx = canvas.getContext('2d');
+    const dateRange = getDateRange();
+    const datasets = getSelectedDatasets(dateRange);
+    const annotations = createAnnotations();
+
+    // Check if mobile device
+    const isMobile = window.innerWidth < 768;
+
+    charts['main'] = new Chart(ctx, {
+        type: 'line',
+        data: { datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                mode: isMobile ? 'nearest' : 'index',
+                intersect: false,
+            },
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Historical Market Data',
+                    font: {
+                        size: isMobile ? 16 : 20,
+                        weight: 'bold'
+                    }
+                },
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        font: {
+                            size: isMobile ? 10 : 12
+                        },
+                        boxWidth: isMobile ? 20 : 40,
+                        padding: isMobile ? 10 : 15
+                    }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            label += context.parsed.y.toFixed(2);
+                            return label;
+                        }
+                    }
+                },
+                annotation: {
+                    annotations: annotations
+                }
+            },
+            scales: {
+                x: {
+                    type: 'time',
+                    time: {
+                        unit: 'year',
+                        displayFormats: {
+                            year: 'yyyy'
+                        }
+                    },
+                    title: {
+                        display: !isMobile,
+                        text: 'Year'
+                    },
+                    ticks: {
+                        font: {
+                            size: isMobile ? 10 : 12
+                        },
+                        maxRotation: isMobile ? 45 : 0,
+                        minRotation: isMobile ? 45 : 0
+                    }
+                },
+                y: {
+                    beginAtZero: false,
+                    title: {
+                        display: !isMobile,
+                        text: 'Value (USD / Ratio)'
+                    },
+                    ticks: {
+                        font: {
+                            size: isMobile ? 10 : 12
+                        }
+                    }
+                }
+            }
+        }
     });
+}
+
+// Get selected datasets based on checkboxes
+function getSelectedDatasets(dateRange) {
+    const datasets = [];
+
+    if (document.getElementById('show-gold')?.checked) {
+        datasets.push(getGoldUSDDataset(dateRange)[0]);
+    }
+
+    if (document.getElementById('show-home')?.checked) {
+        datasets.push(getHomeUSDDataset(dateRange)[0]);
+    }
+
+    if (document.getElementById('show-sp500')?.checked) {
+        datasets.push(getSP500USDDataset(dateRange)[0]);
+    }
+
+    if (document.getElementById('show-cape')?.checked) {
+        datasets.push(getCapeUSDDataset(dateRange)[0]);
+    }
+
+    return datasets;
 }
 
 // Load preprocessed data from static JSON files
@@ -540,23 +652,22 @@ function setupEventListeners() {
         } else if (this.value === 'event') {
             eventRange.style.display = 'flex';
         } else {
-            createAllCharts();
+            createMainChart();
         }
     });
 
-    document.getElementById('applyRange').addEventListener('click', createAllCharts);
-    document.getElementById('applyEvent').addEventListener('click', createAllCharts);
+    document.getElementById('applyRange').addEventListener('click', createMainChart);
+    document.getElementById('applyEvent').addEventListener('click', createMainChart);
 
     // Update charts when event period or years changes
-    document.getElementById('eventPeriod').addEventListener('change', function() {
-        // Auto-update when period changes
-        createAllCharts();
-    });
+    document.getElementById('eventPeriod').addEventListener('change', createMainChart);
+    document.getElementById('eventYears').addEventListener('change', createMainChart);
 
-    document.getElementById('eventYears').addEventListener('change', function() {
-        // Auto-update when years range changes
-        createAllCharts();
-    });
+    // Update chart when dataset checkboxes change
+    document.getElementById('show-gold')?.addEventListener('change', createMainChart);
+    document.getElementById('show-home')?.addEventListener('change', createMainChart);
+    document.getElementById('show-sp500')?.addEventListener('change', createMainChart);
+    document.getElementById('show-cape')?.addEventListener('change', createMainChart);
 
     // Calculator event listener
     document.getElementById('calculateBtn').addEventListener('click', calculateInvestmentReturn);

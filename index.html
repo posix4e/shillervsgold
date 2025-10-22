@@ -142,27 +142,33 @@
             </div>
         </div>
 
-        <div class="charts-grid">
-            <div class="chart-container">
-                <canvas id="chart-home-gold"></canvas>
+        <div class="chart-section">
+            <h2>Historical Data Visualization</h2>
+            <div class="chart-controls">
+                <div class="control-group">
+                    <label>Select Data to Display:</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="show-gold" checked>
+                            <span>Gold (Real)</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="show-home">
+                            <span>Housing (Real)</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="show-sp500">
+                            <span>S&P 500 (Real)</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="show-cape">
+                            <span>CAPE Ratio</span>
+                        </label>
+                    </div>
+                </div>
             </div>
-            <div class="chart-container">
-                <canvas id="chart-sp500-gold"></canvas>
-            </div>
-            <div class="chart-container">
-                <canvas id="chart-all-normalized"></canvas>
-            </div>
-            <div class="chart-container">
-                <canvas id="chart-cape-usd"></canvas>
-            </div>
-            <div class="chart-container">
-                <canvas id="chart-home-usd"></canvas>
-            </div>
-            <div class="chart-container">
-                <canvas id="chart-sp500-usd"></canvas>
-            </div>
-            <div class="chart-container">
-                <canvas id="chart-gold-usd"></canvas>
+            <div class="chart-container-large">
+                <canvas id="main-chart"></canvas>
             </div>
         </div>
 
