@@ -114,6 +114,9 @@ function createChart(chartType) {
     const annotations = createAnnotations();
 
     try {
+        // Check if mobile device
+        const isMobile = window.innerWidth < 768;
+
         charts[chartType] = new Chart(ctx, {
             type: 'line',
             data: { datasets },
@@ -121,18 +124,28 @@ function createChart(chartType) {
                 responsive: true,
                 maintainAspectRatio: false,
                 interaction: {
-                    mode: 'index',
+                    mode: isMobile ? 'nearest' : 'index',
                     intersect: false,
                 },
                 plugins: {
                     title: {
                         display: true,
                         text: getChartTitle(chartType),
-                        font: { size: 18, weight: 'bold' }
+                        font: {
+                            size: isMobile ? 14 : 18,
+                            weight: 'bold'
+                        }
                     },
                     legend: {
                         display: true,
                         position: 'top',
+                        labels: {
+                            font: {
+                                size: isMobile ? 10 : 12
+                            },
+                            boxWidth: isMobile ? 20 : 40,
+                            padding: isMobile ? 10 : 15
+                        }
                     },
                     tooltip: {
                         callbacks: {
@@ -160,15 +173,27 @@ function createChart(chartType) {
                             }
                         },
                         title: {
-                            display: true,
+                            display: !isMobile,
                             text: 'Year'
+                        },
+                        ticks: {
+                            font: {
+                                size: isMobile ? 10 : 12
+                            },
+                            maxRotation: isMobile ? 45 : 0,
+                            minRotation: isMobile ? 45 : 0
                         }
                     },
                     y: {
                         beginAtZero: false,
                         title: {
-                            display: true,
+                            display: !isMobile,
                             text: 'Ratio / Value'
+                        },
+                        ticks: {
+                            font: {
+                                size: isMobile ? 10 : 12
+                            }
                         }
                     }
                 }
