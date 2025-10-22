@@ -2,6 +2,10 @@
 
 A web-based visualization tool that combines Robert Shiller's CAPE ratio and home price data with historical gold prices to show relative market valuations over time. Similar to [strategyrainbow.com](https://strategyrainbow.com), this tool helps identify periods of market overvaluation or undervaluation.
 
+![Shiller vs Gold Charts](preview.png)
+
+**Live Demo**: [https://posix4e.github.io/shillervsgold/](https://posix4e.github.io/shillervsgold/)
+
 ## Features
 
 - **Multiple Chart Types:**
