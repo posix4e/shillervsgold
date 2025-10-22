@@ -141,25 +141,131 @@ function createMainChart() {
     });
 }
 
-// Get selected datasets based on checkboxes
+// Build a dataset for a specific asset/denominator combination
+function buildAssetDataset(assetType, assetName, denominator, dateRange) {
+    // Define colors for each asset
+    const colors = {
+        gold: { border: '#ffc107', background: 'rgba(255, 193, 7, 0.1)' },
+        housing: { border: '#28a745', background: 'rgba(40, 167, 69, 0.1)' },
+        sp500: { border: '#dc3545', background: 'rgba(220, 53, 69, 0.1)' },
+        cape: { border: '#667eea', background: 'rgba(102, 126, 234, 0.1)' }
+    };
+
+    // Handle Gold/Gold edge case - would always be 1.0
+    if (assetType === 'gold' && denominator === 'gold') {
+        return null; // Skip this combination
+    }
+
+    // Select the appropriate data source
+    let sourceData;
+    if (assetType === 'cape') {
+        sourceData = capeGoldData;
+    } else if (assetType === 'housing') {
+        sourceData = homeGoldData;
+    } else if (assetType === 'sp500') {
+        sourceData = sp500GoldData;
+    } else if (assetType === 'gold') {
+        // Gold data is in all datasets, use cape data
+        sourceData = capeGoldData;
+    }
+
+    if (!sourceData || sourceData.length === 0) {
+        return null;
+    }
+
+    // Filter by date range
+    const filtered = filterByDateRange(sourceData, dateRange);
+
+    // Build the data points based on asset and denominator
+    const data = filtered.map(item => {
+        let value;
+
+        if (denominator === 'gold') {
+            // Asset priced in gold ounces (ratio)
+            if (assetType === 'cape') {
+                value = item.value; // CAPE/Gold ratio already calculated
+            } else if (assetType === 'housing') {
+                value = item.value; // Housing/Gold ratio already calculated
+            } else if (assetType === 'sp500') {
+                value = item.value; // SP500/Gold ratio already calculated
+            }
+        } else if (denominator === 'real') {
+            // Asset priced in real (CPI-adjusted) dollars
+            if (assetType === 'cape') {
+                value = item.cape; // CAPE is already a ratio, show as-is
+            } else if (assetType === 'housing') {
+                value = item.homePriceReal;
+            } else if (assetType === 'sp500') {
+                value = item.sp500Real;
+            } else if (assetType === 'gold') {
+                value = item.goldReal;
+            }
+        } else if (denominator === 'nominal') {
+            // Asset priced in nominal dollars
+            if (assetType === 'cape') {
+                value = item.cape; // CAPE is already a ratio, show as-is
+            } else if (assetType === 'housing') {
+                value = item.homePriceNominal;
+            } else if (assetType === 'sp500') {
+                value = item.sp500Nominal;
+            } else if (assetType === 'gold') {
+                value = item.goldNominal;
+            }
+        }
+
+        return {
+            x: item.date,
+            y: value || 0
+        };
+    }).filter(point => point.y > 0);
+
+    // Build label
+    let denominatorLabel;
+    if (denominator === 'gold') {
+        denominatorLabel = 'Gold oz';
+    } else if (denominator === 'real') {
+        denominatorLabel = 'Real $';
+    } else {
+        denominatorLabel = 'Nominal $';
+    }
+
+    const label = `${assetName} (${denominatorLabel})`;
+
+    // Return the dataset
+    return {
+        label: label,
+        data: data,
+        borderColor: colors[assetType].border,
+        backgroundColor: colors[assetType].background,
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.1
+    };
+}
+
+// Get selected datasets based on asset and denominator selection
 function getSelectedDatasets(dateRange) {
     const datasets = [];
 
-    if (document.getElementById('show-gold')?.checked) {
-        datasets.push(getGoldUSDDataset(dateRange)[0]);
-    }
+    // Get selected denominator
+    const denominator = document.querySelector('input[name="denominator"]:checked')?.value || 'real';
 
-    if (document.getElementById('show-home')?.checked) {
-        datasets.push(getHomeUSDDataset(dateRange)[0]);
-    }
+    // Get selected assets and build datasets
+    const assets = [
+        { id: 'asset-gold', type: 'gold', name: 'Gold' },
+        { id: 'asset-housing', type: 'housing', name: 'Housing' },
+        { id: 'asset-sp500', type: 'sp500', name: 'S&P 500' },
+        { id: 'asset-cape', type: 'cape', name: 'CAPE Ratio' }
+    ];
 
-    if (document.getElementById('show-sp500')?.checked) {
-        datasets.push(getSP500USDDataset(dateRange)[0]);
-    }
-
-    if (document.getElementById('show-cape')?.checked) {
-        datasets.push(getCapeUSDDataset(dateRange)[0]);
-    }
+    assets.forEach(asset => {
+        if (document.getElementById(asset.id)?.checked) {
+            const dataset = buildAssetDataset(asset.type, asset.name, denominator, dateRange);
+            if (dataset) {
+                datasets.push(dataset);
+            }
+        }
+    });
 
     return datasets;
 }
@@ -376,6 +482,25 @@ function getSP500GoldDataset(dateRange) {
         data: data,
         borderColor: '#dc3545',
         backgroundColor: 'rgba(220, 53, 69, 0.1)',
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.1
+    }];
+}
+
+// CAPE / Gold ratio dataset
+function getCapeGoldDataset(dateRange) {
+    const filtered = filterByDateRange(capeGoldData, dateRange);
+    const data = filtered.map(item => ({
+        x: item.date,
+        y: item.value
+    }));
+
+    return [{
+        label: 'CAPE / Gold Ratio',
+        data: data,
+        borderColor: '#9b59b6',
+        backgroundColor: 'rgba(155, 89, 182, 0.1)',
         borderWidth: 2,
         pointRadius: 0,
         tension: 0.1
@@ -663,11 +788,16 @@ function setupEventListeners() {
     document.getElementById('eventPeriod').addEventListener('change', createMainChart);
     document.getElementById('eventYears').addEventListener('change', createMainChart);
 
-    // Update chart when dataset checkboxes change
-    document.getElementById('show-gold')?.addEventListener('change', createMainChart);
-    document.getElementById('show-home')?.addEventListener('change', createMainChart);
-    document.getElementById('show-sp500')?.addEventListener('change', createMainChart);
-    document.getElementById('show-cape')?.addEventListener('change', createMainChart);
+    // Update chart when asset checkboxes change
+    document.getElementById('asset-gold')?.addEventListener('change', createMainChart);
+    document.getElementById('asset-housing')?.addEventListener('change', createMainChart);
+    document.getElementById('asset-sp500')?.addEventListener('change', createMainChart);
+    document.getElementById('asset-cape')?.addEventListener('change', createMainChart);
+
+    // Update chart when denominator radio buttons change
+    document.getElementById('denom-real')?.addEventListener('change', createMainChart);
+    document.getElementById('denom-nominal')?.addEventListener('change', createMainChart);
+    document.getElementById('denom-gold')?.addEventListener('change', createMainChart);
 
     // Calculator event listener
     document.getElementById('calculateBtn').addEventListener('click', calculateInvestmentReturn);
