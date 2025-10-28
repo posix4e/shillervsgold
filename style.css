@@ -106,30 +106,164 @@ header h1 {
     background: #5568d3;
 }
 
-.calculator-section {
+.chart-config-section {
     padding: 40px;
     background: #f8f9fa;
     border-bottom: 2px solid #e9ecef;
 }
 
-.calculator-section h2 {
+.chart-config-section h2 {
     color: #1e3c72;
-    margin-bottom: 10px;
+    margin-bottom: 20px;
     font-size: 2em;
 }
 
-.calculator-description {
-    color: #495057;
-    margin-bottom: 30px;
-    font-size: 1.1em;
+.compare-mode-toggle {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: white;
+    border-radius: 8px;
 }
 
-.calculator-inputs {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
-    margin-bottom: 30px;
+.compare-mode-toggle label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    color: #495057;
+}
+
+.compare-mode-toggle input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.asset-config {
+    background: white;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.asset-config h3 {
+    color: #1e3c72;
+    margin-bottom: 20px;
+    font-size: 1.3em;
+}
+
+.config-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
     align-items: end;
+}
+
+.compare-denominator-section {
+    padding: 20px;
+    background: #e9ecef;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border: 2px solid #667eea;
+}
+
+.compare-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    align-items: end;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    position: relative;
+}
+
+.compare-controls {
+    display: flex;
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.update-button, .add-button {
+    padding: 12px 24px;
+    background: #667eea;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.update-button:hover, .add-button:hover {
+    background: #5568d3;
+    transform: translateY(-2px);
+}
+
+.add-button {
+    background: #28a745;
+}
+
+.add-button:hover {
+    background: #218838;
+}
+
+.remove-button {
+    padding: 8px 12px;
+    background: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.remove-button:hover {
+    background: #c82333;
+}
+
+.share-button {
+    padding: 12px 24px;
+    background: #17a2b8;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.share-button:hover {
+    background: #138496;
+    transform: translateY(-2px);
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOut {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(400px);
+        opacity: 0;
+    }
 }
 
 .input-group {
@@ -219,16 +353,14 @@ header h1 {
     color: #667eea;
 }
 
-.charts-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
-    gap: 40px;
+.single-chart-container {
     padding: 40px;
+    background: white;
 }
 
 .chart-container {
     position: relative;
-    height: 400px;
+    height: 500px;
     background: white;
     border-radius: 8px;
     padding: 20px;
@@ -328,9 +460,7 @@ footer {
 
 /* Mobile and Tablet Styles */
 @media (max-width: 1024px) {
-    .charts-grid {
-        grid-template-columns: 1fr;
-        gap: 30px;
+    .single-chart-container {
         padding: 20px;
     }
 
@@ -395,21 +525,30 @@ footer {
         flex-direction: column;
     }
 
-    .calculator-section {
+    .chart-config-section {
         padding: 20px;
     }
 
-    .calculator-section h2 {
+    .chart-config-section h2 {
         font-size: 1.5em;
     }
 
-    .calculator-description {
-        font-size: 1em;
+    .asset-config h3 {
+        font-size: 1.2em;
     }
 
-    .calculator-inputs {
-        grid-template-columns: 1fr;
-        gap: 15px;
+    .config-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .compare-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .compare-controls {
+        flex-direction: column;
     }
 
     .calculator-results {
@@ -480,25 +619,20 @@ footer {
         font-size: 0.9em;
     }
 
-    .calculator-section {
+    .chart-config-section {
         padding: 15px;
     }
 
-    .calculator-section h2 {
+    .chart-config-section h2 {
         font-size: 1.3em;
-    }
-
-    .calculator-description {
-        font-size: 0.95em;
     }
 
     .result-card p {
         font-size: 1.3em;
     }
 
-    .charts-grid {
+    .single-chart-container {
         padding: 10px;
-        gap: 20px;
     }
 
     .chart-container {

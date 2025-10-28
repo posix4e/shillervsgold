@@ -40,84 +40,112 @@
             <div class="control-group">
                 <label for="dateRange">Date Range:</label>
                 <select id="dateRange">
-                    <option value="all">All Available Data</option>
-                    <option value="50">Last 50 Years</option>
+                    <option value="british">British History (1250+)</option>
+                    <option value="modern" selected>Modern History (1871+)</option>
                     <option value="100">Last 100 Years</option>
-                    <option value="event">Historical Event Period</option>
+                    <option value="50">Last 50 Years</option>
                     <option value="custom">Custom Range</option>
                 </select>
             </div>
 
-            <div id="eventRange" class="event-range" style="display: none;">
-                <div class="control-group">
-                    <label for="eventPeriod">Event Period:</label>
-                    <select id="eventPeriod">
-                        <option value="1929-crash-10">1929 Crash (±10 years)</option>
-                        <option value="gold-standard-10">Gold Standard Abandoned (±10 years)</option>
-                        <option value="oil-crisis-10">1973 Oil Crisis (±10 years)</option>
-                        <option value="1987-crash-10">1987 Black Monday (±10 years)</option>
-                        <option value="dotcom-10">Dot-com Bubble (±10 years)</option>
-                        <option value="housing-crisis-10">2007-2008 Housing Crisis (±10 years)</option>
-                        <option value="covid-10">COVID-19 Crash (±10 years)</option>
-                        <option value="gold-to-oil">Gold Standard → Oil Crisis (1923-1973)</option>
-                        <option value="oil-to-dotcom">Oil Crisis → Dot-com (1973-2000)</option>
-                        <option value="dotcom-to-housing">Dot-com → Housing Crisis (2000-2008)</option>
-                        <option value="housing-to-covid">Housing → COVID (2008-2020)</option>
-                    </select>
-                </div>
-                <div class="control-group">
-                    <label for="eventYears">Years Around Event:</label>
-                    <select id="eventYears">
-                        <option value="5">±5 years</option>
-                        <option value="10" selected>±10 years</option>
-                        <option value="20">±20 years</option>
-                        <option value="30">±30 years</option>
-                    </select>
-                </div>
-                <button id="applyEvent">Apply</button>
-            </div>
-
             <div id="customRange" class="custom-range" style="display: none;">
-                <input type="number" id="startYear" placeholder="Start Year" min="1871">
+                <input type="number" id="startYear" placeholder="Start Year" min="1250">
                 <input type="number" id="endYear" placeholder="End Year" max="2025">
                 <button id="applyRange">Apply</button>
             </div>
         </div>
 
-        <div class="calculator-section">
-            <h2>Investment Return Calculator</h2>
-            <p class="calculator-description">Calculate investment returns over the selected date range. Choose between <strong>nominal</strong> (actual dollars) and <strong>real</strong> (inflation-adjusted) returns. Use the date range controls above to select your investment period.</p>
+        <div class="chart-config-section">
+            <h2>Chart & Calculator Configuration</h2>
 
-            <div class="calculator-inputs">
-                <div class="input-group">
-                    <label for="investmentAmount">Investment Amount ($)</label>
-                    <input type="number" id="investmentAmount" placeholder="10000" min="0" step="100" value="10000">
+            <div class="compare-mode-toggle">
+                <label>
+                    <input type="checkbox" id="compareMode">
+                    <span>Compare Multiple Assets</span>
+                </label>
+            </div>
+
+            <div id="singleAssetConfig" class="asset-config">
+                <h3>Display Settings</h3>
+                <div class="config-row">
+                    <div class="control-group">
+                        <label for="asset1">Asset:</label>
+                        <select id="asset1">
+                            <option value="cape">CAPE Ratio</option>
+                            <option value="home" selected>Home Price Index</option>
+                            <option value="sp500">S&P 500</option>
+                            <option value="gold">Gold</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="denominator1">Valued in:</label>
+                        <select id="denominator1">
+                            <option value="real">Real USD (Inflation-Adjusted)</option>
+                            <option value="nominal">Nominal USD</option>
+                            <option value="gold" selected>Gold</option>
+                            <option value="home">Home Price</option>
+                            <option value="sp500">S&P 500</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="investmentAmount">Investment ($, optional):</label>
+                        <input type="number" id="investmentAmount" placeholder="Optional" min="0" step="100">
+                    </div>
+
+                </div>
+            </div>
+
+            <div id="compareConfig" class="asset-config" style="display: none;">
+                <h3>Compare Multiple Assets</h3>
+
+                <div class="compare-denominator-section">
+                    <div class="control-group">
+                        <label for="compareDenominator">All assets valued in:</label>
+                        <select id="compareDenominator">
+                            <option value="real">Real USD (Inflation-Adjusted)</option>
+                            <option value="nominal">Nominal USD</option>
+                            <option value="gold" selected>Gold</option>
+                            <option value="home">Home Price</option>
+                            <option value="sp500">S&P 500</option>
+                        </select>
+                    </div>
                 </div>
 
-                <div class="input-group">
-                    <label for="assetType">Asset Type</label>
-                    <select id="assetType">
-                        <option value="gold">Gold</option>
-                        <option value="home">Housing</option>
-                        <option value="sp500">S&P 500</option>
-                    </select>
+                <div id="compareAssets">
+                    <div class="compare-row" data-index="0">
+                        <div class="control-group">
+                            <label>Asset 1:</label>
+                            <select class="compare-asset">
+                                <option value="cape">CAPE Ratio</option>
+                                <option value="home" selected>Home Price Index</option>
+                                <option value="sp500">S&P 500</option>
+                                <option value="gold">Gold</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="compare-row" data-index="1">
+                        <div class="control-group">
+                            <label>Asset 2:</label>
+                            <select class="compare-asset">
+                                <option value="cape">CAPE Ratio</option>
+                                <option value="home">Home Price Index</option>
+                                <option value="sp500" selected>S&P 500</option>
+                                <option value="gold">Gold</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
-
-                <div class="input-group">
-                    <label for="returnMode">Return Type</label>
-                    <select id="returnMode">
-                        <option value="real">Real (Inflation-Adjusted)</option>
-                        <option value="nominal">Nominal (Actual Dollars)</option>
-                    </select>
+                <div class="compare-controls">
+                    <button id="addComparison" class="add-button">+ Add Asset</button>
                 </div>
-
-                <button id="calculateBtn" class="calculate-button">Calculate Return</button>
             </div>
 
             <div id="calculatorResults" class="calculator-results" style="display: none;">
                 <div class="result-card">
                     <h3>Period</h3>
-                    <p id="periodDates" style="font-size: 1.2em;">-</p>
+                    <p id="periodDates" style="font-size: 1.2em; white-space: pre-line;">-</p>
                 </div>
                 <div class="result-card">
                     <h3>Initial Investment</h3>
@@ -142,27 +170,9 @@
             </div>
         </div>
 
-        <div class="charts-grid">
+        <div class="single-chart-container">
             <div class="chart-container">
-                <canvas id="chart-home-gold"></canvas>
-            </div>
-            <div class="chart-container">
-                <canvas id="chart-sp500-gold"></canvas>
-            </div>
-            <div class="chart-container">
-                <canvas id="chart-all-normalized"></canvas>
-            </div>
-            <div class="chart-container">
-                <canvas id="chart-cape-usd"></canvas>
-            </div>
-            <div class="chart-container">
-                <canvas id="chart-home-usd"></canvas>
-            </div>
-            <div class="chart-container">
-                <canvas id="chart-sp500-usd"></canvas>
-            </div>
-            <div class="chart-container">
-                <canvas id="chart-gold-usd"></canvas>
+                <canvas id="main-chart"></canvas>
             </div>
         </div>
 
