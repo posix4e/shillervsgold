@@ -135,6 +135,7 @@
                             <option value="real">Real USD (Inflation-Adjusted)</option>
                             <option value="nominal">Nominal USD</option>
                             <option value="gold" selected>Gold</option>
+                            <option value="btc">Bitcoin</option>
                             <option value="home">Home Price</option>
                             <option value="sp500">S&P 500</option>
                         </select>
@@ -272,6 +273,16 @@
                 </div>
 
                 <div class="data-source-card">
+                    <h4>₿ Bitcoin Price</h4>
+                    <ul>
+                        <li><strong>Date Range:</strong> 2013 - Present</li>
+                        <li><strong>Update Frequency:</strong> Daily</li>
+                        <li><strong>Source:</strong> <a href="https://dailysatprice.com/" target="_blank">DailySatPrice</a></li>
+                        <li><strong>Coverage:</strong> Bitcoin spot price in USD</li>
+                    </ul>
+                </div>
+
+                <div class="data-source-card">
                     <h4>📊 Custom Tickers (Stocks, Crypto, ETFs)</h4>
                     <ul>
                         <li><strong>Date Range:</strong> <span style="color: #e74c3c; font-weight: bold;">Last 2 Years Only (Free Tier Limitation)</span></li>
@@ -287,10 +298,10 @@
 
             <h3>💡 Tips for Using Custom Tickers</h3>
             <ul class="tips-list">
-                <li>🔹 Custom tickers (AAPL, TSLA, BTC-USD) are limited to 2 years of history - this is a Polygon.io free account restriction</li>
+                <li>🔹 Custom tickers (AAPL, TSLA, etc.) are limited to 2 years of history - this is a Polygon.io free account restriction</li>
                 <li>🔹 We haven't implemented paid Polygon tier support yet, but <strong>sponsor us on GitHub and we'll add it!</strong></li>
                 <li>🔹 Use the "Last 2 Years" date range option when viewing custom tickers</li>
-                <li>🔹 Built-in assets (CAPE, S&P 500, Gold, Homes) have full historical data available</li>
+                <li>🔹 Built-in assets (CAPE, S&P 500, Gold, Bitcoin, Homes) have full historical data available</li>
                 <li>🔹 You can compare custom tickers against built-in assets within their available date ranges</li>
                 <li>🔹 Your API key is stored locally in your browser and never sent to our servers</li>
             </ul>

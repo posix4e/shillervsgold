@@ -2,6 +2,7 @@
 let stockData = []; // Contains: date, sp500, cape, dividend, earnings, cpi
 let homeData = [];  // Contains: date, realPrice, buildingCost
 let goldData = [];  // Contains: date, price
+let btcData = [];   // Contains: date, price
 let stats = null;
 let historicalEvents = [];
 let currentChart = null;
@@ -61,6 +62,18 @@ const assetMetadata = {
             'nominal': 'goldNominal',
             'raw': 'goldReal'
         }
+    },
+    'btc': {
+        name: 'Bitcoin',
+        code: 'btc',
+        description: 'Bitcoin (BTC) Price',
+        keywords: ['btc', 'bitcoin', 'crypto', 'cryptocurrency'],
+        color: '#f7931a',
+        dataFields: {
+            'real': 'btcReal',
+            'nominal': 'btcNominal',
+            'raw': 'btcNominal'
+        }
     }
 };
 
@@ -69,7 +82,8 @@ function getDataArrayForAsset(asset) {
     // Map assets to their raw data sources
     if (asset === 'cape' || asset === 'sp500') return stockData;
     if (asset === 'home') return homeData;
-    if (asset === 'gold') return goldData; // Use gold data directly
+    if (asset === 'gold') return goldData;
+    if (asset === 'btc') return btcData;
 
     // Check if it's a custom asset (ticker symbol)
     if (customAssets[asset] && customAssets[asset].data) {
@@ -126,6 +140,18 @@ function getAssetValue(dataPoint, asset, mode) {
             const cpi = getCPIForDate(dataPoint.date);
             assetValue = goldPrice * (baseCPI / cpi);
         }
+    } else if (asset === 'btc') {
+        // For Bitcoin data points, the price is nominal
+        const btcPrice = dataPoint.price || 0;
+        if (!btcPrice) return null;
+
+        if (mode === 'nominal') {
+            assetValue = btcPrice;
+        } else {
+            // Convert to real using CPI
+            const cpi = getCPIForDate(dataPoint.date);
+            assetValue = btcPrice * (baseCPI / cpi);
+        }
     } else if (isCustomAsset) {
         // For custom assets from Polygon.io, the price is nominal
         const price = dataPoint.price || 0;
@@ -145,7 +171,7 @@ function getAssetValue(dataPoint, asset, mode) {
         return assetValue;
     } else if (mode === 'nominal') {
         // Convert real to nominal using CPI
-        if (asset === 'gold') {
+        if (asset === 'gold' || asset === 'btc') {
             return assetValue; // Already handled above
         }
         const cpi = dataPoint.cpi || getCPIForDate(dataPoint.date);
@@ -161,6 +187,12 @@ function getAssetValue(dataPoint, asset, mode) {
             // Convert to real gold price
             const cpi = getCPIForDate(dataPoint.date);
             denominatorValue = goldPrice * (baseCPI / cpi);
+        } else if (mode === 'btc') {
+            const btcPrice = getBitcoinPriceForDate(dataPoint.date);
+            if (!btcPrice) return null;
+            // Convert to real Bitcoin price
+            const cpi = getCPIForDate(dataPoint.date);
+            denominatorValue = btcPrice * (baseCPI / cpi);
         } else if (mode === 'home') {
             const homePrice = getHomePriceForDate(dataPoint.date);
             if (!homePrice) return null;
@@ -244,6 +276,34 @@ function getSP500ForDate(targetDate) {
     }
 
     return closest.sp500;
+}
+
+// Get Bitcoin price for a specific date (nearest match)
+function getBitcoinPriceForDate(targetDate) {
+    if (btcData.length === 0) return null;
+
+    const target = new Date(targetDate);
+    const firstBtcDate = new Date(btcData[0].date);
+
+    // Bitcoin didn't exist before 2009, so return null for dates before our data starts
+    // Allow some tolerance (30 days) for data alignment
+    const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+    if (target < (firstBtcDate.getTime() - thirtyDays)) {
+        return null;
+    }
+
+    let closest = btcData[0];
+    let minDiff = Math.abs(target - new Date(btcData[0].date));
+
+    for (const btc of btcData) {
+        const diff = Math.abs(target - new Date(btc.date));
+        if (diff < minDiff) {
+            minDiff = diff;
+            closest = btc;
+        }
+    }
+
+    return closest.price;
 }
 
 // Get CAPE for a specific date (nearest match)
@@ -360,6 +420,15 @@ function getCustomAssetPriceForDate(ticker, targetDate) {
 
     const data = customAssets[ticker].data;
     const target = new Date(targetDate);
+    const firstDate = new Date(data[0].date);
+
+    // Custom assets have limited date ranges (2 years for Polygon free tier)
+    // Return null for dates significantly before the data starts
+    const thirtyDays = 30 * 24 * 60 * 60 * 1000;
+    if (target < (firstDate.getTime() - thirtyDays)) {
+        return null;
+    }
+
     let closest = data[0];
     let minDiff = Math.abs(target - new Date(data[0].date));
 
@@ -749,10 +818,11 @@ async function loadDataFromAPIs() {
         console.log('Fetching data from APIs...');
 
         // Fetch all data sources in parallel
-        const [stockResponse, homeResponse, goldResponse] = await Promise.all([
+        const [stockResponse, homeResponse, goldResponse, btcResponse] = await Promise.all([
             fetch('https://posix4e.github.io/shiller_wrapper_data/data/stock_market_data.json'),
             fetch('https://posix4e.github.io/shiller_wrapper_data/data/home_price_data.json'),
-            fetch('https://freegoldapi.com/data/latest.csv')
+            fetch('https://freegoldapi.com/data/latest.csv'),
+            fetch('https://dailysatprice.com/data/latest.csv')
         ]);
 
         // Process stock data
@@ -810,6 +880,22 @@ async function loadDataFromAPIs() {
             .filter(item => !isNaN(item.date.getTime()) && !isNaN(item.price) && item.price > 0)
             .sort((a, b) => a.date - b.date);
 
+        // Process Bitcoin data
+        const btcCsv = await btcResponse.text();
+        const btcLines = btcCsv.trim().split('\n');
+
+        btcData = btcLines
+            .slice(1) // Skip header
+            .filter(line => line.trim())
+            .map(line => {
+                const parts = line.split(',');
+                const date = new Date(parts[0].trim());
+                const price = parseFloat(parts[1]);
+                return { date, price };
+            })
+            .filter(item => !isNaN(item.date.getTime()) && !isNaN(item.price) && item.price > 0)
+            .sort((a, b) => a.date - b.date);
+
         // Set historical events
         historicalEvents = HISTORICAL_EVENTS;
 
@@ -841,7 +927,8 @@ async function loadDataFromAPIs() {
             dataPoints: {
                 stock: stockData.length,
                 home: homeData.length,
-                gold: goldData.length
+                gold: goldData.length,
+                btc: btcData.length
             }
         };
 
@@ -849,6 +936,7 @@ async function loadDataFromAPIs() {
         console.log(`  - Stock data: ${stockData.length} points (${stockData[0].date.getFullYear()}-${stockData[stockData.length-1].date.getFullYear()})`);
         console.log(`  - Home data: ${homeData.length} points (${homeData[0].date.getFullYear()}-${homeData[homeData.length-1].date.getFullYear()})`);
         console.log(`  - Gold data: ${goldData.length} points (${goldData[0].date.getFullYear()}-${goldData[goldData.length-1].date.getFullYear()})`);
+        console.log(`  - Bitcoin data: ${btcData.length} points (${btcData[0].date.getFullYear()}-${btcData[btcData.length-1].date.getFullYear()})`);
         console.log(`  - Base CPI: ${baseCPI.toFixed(2)}`);
 
     } catch (error) {
