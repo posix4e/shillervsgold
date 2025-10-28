@@ -34,16 +34,42 @@
         <header>
             <h1>Shiller vs Gold</h1>
             <p class="subtitle">Historical Market Valuations: CAPE Ratio, Home Prices, and Gold</p>
+            <button id="settingsButton" class="settings-button" title="Settings">⚙️</button>
         </header>
+
+        <!-- Settings Modal -->
+        <div id="settingsModal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <span class="close-modal">&times;</span>
+                <h2>⚙️ Settings</h2>
+
+                <div class="settings-section">
+                    <h3>🔍 Polygon.io API Key</h3>
+                    <p class="help-text">Enter your free <a href="https://polygon.io/dashboard/signup" target="_blank">Polygon.io API key</a> to search custom tickers (AAPL, TSLA, BTC-USD, etc.)</p>
+
+                    <div class="api-input-container">
+                        <input type="text" id="apiKeyInput" placeholder="Paste your Polygon.io API key here..." class="api-key-input">
+                        <button id="saveApiKey" class="primary-button">💾 Save</button>
+                        <button id="clearApiKey" class="secondary-button">🗑️ Clear</button>
+                    </div>
+
+                    <p class="help-text" style="margin-top: 10px; font-size: 0.9em;">
+                        Your API key is stored locally in your browser only. Free tier: 5 calls/minute, <strong>2 years of data only</strong>.<br>
+                        The 2-year limit is a Polygon.io free account restriction. We haven't implemented paid tier support, but if you sponsor this project, we'll add it!
+                    </p>
+                </div>
+            </div>
+        </div>
 
         <div class="controls">
             <div class="control-group">
                 <label for="dateRange">Date Range:</label>
                 <select id="dateRange">
-                    <option value="british">British History (1250+)</option>
-                    <option value="modern" selected>Modern History (1871+)</option>
+                    <option value="british">British History (1250+) - Gold only</option>
+                    <option value="modern" selected>Modern History (1871+) - CAPE, Stocks, Homes</option>
                     <option value="100">Last 100 Years</option>
                     <option value="50">Last 50 Years</option>
+                    <option value="2">Last 2 Years - Custom tickers (Polygon free tier)</option>
                     <option value="custom">Custom Range</option>
                 </select>
             </div>
@@ -52,6 +78,13 @@
                 <input type="number" id="startYear" placeholder="Start Year" min="1250">
                 <input type="number" id="endYear" placeholder="End Year" max="2025">
                 <button id="applyRange">Apply</button>
+            </div>
+
+            <div class="date-range-info">
+                <p class="help-text">
+                    <strong>Note:</strong> Different data sources have different date ranges available.
+                    Custom tickers from Polygon.io (free tier) are limited to 2 years of historical data.
+                </p>
             </div>
         </div>
 
@@ -68,25 +101,20 @@
             <div id="singleAssetConfig" class="asset-config">
                 <h3>Display Settings</h3>
                 <div class="config-row">
-                    <div class="control-group">
-                        <label for="asset1">Asset:</label>
-                        <select id="asset1">
-                            <option value="cape">CAPE Ratio</option>
-                            <option value="home" selected>Home Price Index</option>
-                            <option value="sp500">S&P 500</option>
-                            <option value="gold">Gold</option>
-                        </select>
+                    <div class="control-group asset-search-group">
+                        <label>Asset:</label>
+                        <div class="asset-search-container">
+                            <input type="text" id="asset1" class="asset-search" placeholder="Search: home, gold, spy, btc-usd..." data-asset="home" value="Home Price Index">
+                            <div class="asset-suggestions" style="display: none;"></div>
+                        </div>
                     </div>
 
-                    <div class="control-group">
-                        <label for="denominator1">Valued in:</label>
-                        <select id="denominator1">
-                            <option value="real">Real USD (Inflation-Adjusted)</option>
-                            <option value="nominal">Nominal USD</option>
-                            <option value="gold" selected>Gold</option>
-                            <option value="home">Home Price</option>
-                            <option value="sp500">S&P 500</option>
-                        </select>
+                    <div class="control-group asset-search-group">
+                        <label>Valued in:</label>
+                        <div class="asset-search-container">
+                            <input type="text" id="denominator1" class="asset-search" placeholder="Search: gold, real, nominal..." data-asset="gold" value="Gold">
+                            <div class="asset-suggestions" style="display: none;"></div>
+                        </div>
                     </div>
 
                     <div class="control-group">
@@ -115,25 +143,21 @@
 
                 <div id="compareAssets">
                     <div class="compare-row" data-index="0">
-                        <div class="control-group">
+                        <div class="control-group asset-search-group">
                             <label>Asset 1:</label>
-                            <select class="compare-asset">
-                                <option value="cape">CAPE Ratio</option>
-                                <option value="home" selected>Home Price Index</option>
-                                <option value="sp500">S&P 500</option>
-                                <option value="gold">Gold</option>
-                            </select>
+                            <div class="asset-search-container">
+                                <input type="text" class="asset-search" placeholder="Search: home, gold, spy, btc-usd..." data-asset="home" value="Home Price Index">
+                                <div class="asset-suggestions" style="display: none;"></div>
+                            </div>
                         </div>
                     </div>
                     <div class="compare-row" data-index="1">
-                        <div class="control-group">
+                        <div class="control-group asset-search-group">
                             <label>Asset 2:</label>
-                            <select class="compare-asset">
-                                <option value="cape">CAPE Ratio</option>
-                                <option value="home">Home Price Index</option>
-                                <option value="sp500" selected>S&P 500</option>
-                                <option value="gold">Gold</option>
-                            </select>
+                            <div class="asset-search-container">
+                                <input type="text" class="asset-search" placeholder="Search: home, gold, spy, btc-usd..." data-asset="sp500" value="S&P 500">
+                                <div class="asset-suggestions" style="display: none;"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -203,12 +227,72 @@
                 The CAPE ratio helps identify periods of stock market overvaluation or undervaluation,
                 while comparing it to gold provides additional context about real value.
             </p>
-            <p>
-                <strong>Data Sources:</strong>
-            </p>
-            <ul>
-                <li>Shiller Data: <a href="https://posix4e.github.io/shiller_wrapper_data/" target="_blank">Shiller Wrapper Data</a></li>
-                <li>Gold Prices: <a href="https://freegoldapi.com/" target="_blank">FreeGoldAPI</a></li>
+
+            <h3>📊 Data Sources & Availability</h3>
+
+            <div class="data-source-details">
+                <div class="data-source-card">
+                    <h4>🏛️ Shiller CAPE Ratio</h4>
+                    <ul>
+                        <li><strong>Date Range:</strong> 1871 - Present</li>
+                        <li><strong>Update Frequency:</strong> Monthly</li>
+                        <li><strong>Source:</strong> <a href="https://posix4e.github.io/shiller_wrapper_data/" target="_blank">Shiller Wrapper Data</a></li>
+                        <li><strong>Coverage:</strong> US Stock Market (S&P 500 and predecessors)</li>
+                    </ul>
+                </div>
+
+                <div class="data-source-card">
+                    <h4>🏠 Home Price Index</h4>
+                    <ul>
+                        <li><strong>Date Range:</strong> 1890 - Present</li>
+                        <li><strong>Update Frequency:</strong> Quarterly</li>
+                        <li><strong>Source:</strong> <a href="https://posix4e.github.io/shiller_wrapper_data/" target="_blank">Shiller Wrapper Data</a></li>
+                        <li><strong>Coverage:</strong> US National Average Home Prices</li>
+                    </ul>
+                </div>
+
+                <div class="data-source-card">
+                    <h4>📈 S&P 500 Index</h4>
+                    <ul>
+                        <li><strong>Date Range:</strong> 1871 - Present</li>
+                        <li><strong>Update Frequency:</strong> Monthly</li>
+                        <li><strong>Source:</strong> <a href="https://posix4e.github.io/shiller_wrapper_data/" target="_blank">Shiller Wrapper Data</a></li>
+                        <li><strong>Coverage:</strong> US Stock Market (nominal and real prices)</li>
+                    </ul>
+                </div>
+
+                <div class="data-source-card">
+                    <h4>🥇 Gold Prices</h4>
+                    <ul>
+                        <li><strong>Date Range:</strong> 1258 - Present</li>
+                        <li><strong>Update Frequency:</strong> Daily (updated 6 AM UTC)</li>
+                        <li><strong>Source:</strong> <a href="https://freegoldapi.com/" target="_blank">FreeGoldAPI</a></li>
+                        <li><strong>Coverage:</strong> Historical gold prices in USD (includes medieval British data)</li>
+                    </ul>
+                </div>
+
+                <div class="data-source-card">
+                    <h4>📊 Custom Tickers (Stocks, Crypto, ETFs)</h4>
+                    <ul>
+                        <li><strong>Date Range:</strong> <span style="color: #e74c3c; font-weight: bold;">Last 2 Years Only (Free Tier Limitation)</span></li>
+                        <li><strong>Update Frequency:</strong> Daily</li>
+                        <li><strong>Source:</strong> <a href="https://polygon.io/" target="_blank">Polygon.io API</a></li>
+                        <li><strong>Rate Limit:</strong> 5 API calls per minute (free tier)</li>
+                        <li><strong>Requirements:</strong> Free API key (setup via ⚙️ Settings button)</li>
+                        <li><strong>Coverage:</strong> Any US stock ticker, crypto pairs (BTC-USD), and ETFs</li>
+                        <li><strong>Why 2 years?</strong> This is a Polygon.io free tier restriction. Users provide their own free API keys, so we haven't implemented paid tier support. However, if you <a href="https://github.com/posix4e/shillervsgold" target="_blank">sponsor the project</a>, we'll add paid account integration for full historical data!</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h3>💡 Tips for Using Custom Tickers</h3>
+            <ul class="tips-list">
+                <li>🔹 Custom tickers (AAPL, TSLA, BTC-USD) are limited to 2 years of history - this is a Polygon.io free account restriction</li>
+                <li>🔹 We haven't implemented paid Polygon tier support yet, but <strong>sponsor us on GitHub and we'll add it!</strong></li>
+                <li>🔹 Use the "Last 2 Years" date range option when viewing custom tickers</li>
+                <li>🔹 Built-in assets (CAPE, S&P 500, Gold, Homes) have full historical data available</li>
+                <li>🔹 You can compare custom tickers against built-in assets within their available date ranges</li>
+                <li>🔹 Your API key is stored locally in your browser and never sent to our servers</li>
             </ul>
         </div>
 

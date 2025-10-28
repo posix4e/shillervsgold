@@ -9,10 +9,16 @@ let currentChart = null;
 // Base CPI for inflation calculations (will be set to latest CPI)
 let baseCPI = null;
 
+// Custom assets from Polygon.io (cached)
+let customAssets = {}; // Format: { 'TICKER': { name: 'Name', color: '#color', data: [{date, price}] } }
+
 // Asset metadata - defines what data is available
 const assetMetadata = {
     'cape': {
         name: 'CAPE Ratio',
+        code: 'cape',
+        description: 'Cyclically Adjusted Price-to-Earnings ratio',
+        keywords: ['cape', 'shiller', 'pe', 'ratio'],
         color: '#667eea',
         dataFields: {
             'real': null, // CAPE doesn't have real/nominal distinction
@@ -22,6 +28,9 @@ const assetMetadata = {
     },
     'home': {
         name: 'Home Price Index',
+        code: 'home',
+        description: 'US Real Home Price Index',
+        keywords: ['home', 'house', 'housing', 'real estate', 'property'],
         color: '#28a745',
         dataFields: {
             'real': 'homePriceReal',
@@ -31,6 +40,9 @@ const assetMetadata = {
     },
     'sp500': {
         name: 'S&P 500',
+        code: 'sp500',
+        description: 'S&P 500 Stock Market Index',
+        keywords: ['sp500', 's&p', 'spy', 'stock', 'market', 'index'],
         color: '#dc3545',
         dataFields: {
             'real': 'sp500Real',
@@ -40,6 +52,9 @@ const assetMetadata = {
     },
     'gold': {
         name: 'Gold',
+        code: 'gold',
+        description: 'Gold Price per Ounce',
+        keywords: ['gold', 'gld', 'precious', 'metal'],
         color: '#ffc107',
         dataFields: {
             'real': 'goldReal',
@@ -55,6 +70,12 @@ function getDataArrayForAsset(asset) {
     if (asset === 'cape' || asset === 'sp500') return stockData;
     if (asset === 'home') return homeData;
     if (asset === 'gold') return goldData; // Use gold data directly
+
+    // Check if it's a custom asset (ticker symbol)
+    if (customAssets[asset] && customAssets[asset].data) {
+        return customAssets[asset].data;
+    }
+
     return null;
 }
 
@@ -80,7 +101,9 @@ function getCPIForDate(targetDate) {
 // Get value from data point for a specific asset and mode
 function getAssetValue(dataPoint, asset, mode) {
     const metadata = assetMetadata[asset];
-    if (!metadata) return null;
+    const isCustomAsset = !metadata && customAssets[asset];
+
+    if (!metadata && !isCustomAsset) return null;
 
     // Get the raw value for the asset
     let assetValue;
@@ -102,6 +125,18 @@ function getAssetValue(dataPoint, asset, mode) {
             // Convert to real using CPI
             const cpi = getCPIForDate(dataPoint.date);
             assetValue = goldPrice * (baseCPI / cpi);
+        }
+    } else if (isCustomAsset) {
+        // For custom assets from Polygon.io, the price is nominal
+        const price = dataPoint.price || 0;
+        if (!price) return null;
+
+        if (mode === 'nominal') {
+            assetValue = price;
+        } else {
+            // Convert to real using CPI
+            const cpi = getCPIForDate(dataPoint.date);
+            assetValue = price * (baseCPI / cpi);
         }
     }
 
@@ -138,6 +173,13 @@ function getAssetValue(dataPoint, asset, mode) {
             const capeValue = getCapeForDate(dataPoint.date);
             if (!capeValue) return null;
             denominatorValue = capeValue;
+        } else if (customAssets[mode]) {
+            // Custom asset as denominator
+            const customPrice = getCustomAssetPriceForDate(mode, dataPoint.date);
+            if (!customPrice) return null;
+            // Convert to real price
+            const cpi = getCPIForDate(dataPoint.date);
+            denominatorValue = customPrice * (baseCPI / cpi);
         } else {
             return null;
         }
@@ -223,6 +265,272 @@ function getCapeForDate(targetDate) {
     return closest.cape;
 }
 
+// Fetch data from Polygon.io for a custom ticker
+async function fetchPolygonData(ticker) {
+    // Check cache first
+    if (customAssets[ticker]) {
+        console.log(`Using cached data for ${ticker}`);
+        return customAssets[ticker];
+    }
+
+    const apiKey = getStoredApiKey();
+    if (!apiKey) {
+        throw new Error('No API key configured. Click the ⚙️ Settings button to set up your free Polygon.io API key.');
+    }
+
+    try {
+        console.log(`Fetching data for ${ticker} from Polygon.io...`);
+
+        // Get historical data - Free tier only has 2 years of history
+        // Use 2 years to ensure free tier compatibility
+        const endDate = new Date().toISOString().split('T')[0];
+        const twoYearsAgo = new Date();
+        twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+        const startDate = twoYearsAgo.toISOString().split('T')[0];
+
+        const url = `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${startDate}/${endDate}?adjusted=true&sort=asc&limit=50000&apiKey=${apiKey}`;
+
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
+                throw new Error('Invalid API key. Please check your settings.');
+            } else if (response.status === 404) {
+                throw new Error(`Ticker ${ticker} not found. Make sure the symbol is correct.`);
+            } else {
+                throw new Error(`Polygon API returned ${response.status}. ${response.statusText}`);
+            }
+        }
+
+        const json = await response.json();
+
+        if (!json.results || json.results.length === 0) {
+            throw new Error(`No data found for ticker ${ticker}. Make sure the ticker symbol is correct.`);
+        }
+
+        const results = json.results;
+        const timestamps = results.map(r => r.t);
+        const prices = results.map(r => r.c); // Close prices
+
+        if (!timestamps || !prices) {
+            throw new Error(`Invalid data structure for ${ticker}`);
+        }
+
+        // Convert to our format
+        // Polygon.io timestamps are in milliseconds, not seconds
+        const data = [];
+        for (let i = 0; i < timestamps.length; i++) {
+            if (prices[i] !== null && !isNaN(prices[i])) {
+                data.push({
+                    date: new Date(timestamps[i]),
+                    price: parseFloat(prices[i])
+                });
+            }
+        }
+
+        if (data.length === 0) {
+            throw new Error(`No valid price data for ${ticker}`);
+        }
+
+        // Generate a random color for this asset
+        const colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6', '#1abc9c', '#e67e22', '#34495e'];
+        const color = colors[Object.keys(customAssets).length % colors.length];
+
+        // Cache the data
+        customAssets[ticker] = {
+            name: ticker.toUpperCase(),
+            longName: ticker.toUpperCase(),
+            color: color,
+            data: data
+        };
+
+        console.log(`✓ Fetched ${data.length} data points for ${ticker} (${data[0].date.getFullYear()}-${data[data.length-1].date.getFullYear()})`);
+
+        return customAssets[ticker];
+
+    } catch (error) {
+        console.error(`Error fetching ${ticker}:`, error);
+        throw error;
+    }
+}
+
+// Get custom asset price for a specific date (nearest match)
+function getCustomAssetPriceForDate(ticker, targetDate) {
+    if (!customAssets[ticker] || !customAssets[ticker].data) return null;
+
+    const data = customAssets[ticker].data;
+    const target = new Date(targetDate);
+    let closest = data[0];
+    let minDiff = Math.abs(target - new Date(data[0].date));
+
+    for (const item of data) {
+        const diff = Math.abs(target - new Date(item.date));
+        if (diff < minDiff) {
+            minDiff = diff;
+            closest = item;
+        }
+    }
+
+    return closest.price;
+}
+
+// Search for assets (built-in + custom tickers)
+function searchAssets(query, isDenominator = false) {
+    const results = [];
+    const lowerQuery = query.toLowerCase().trim();
+
+    if (!lowerQuery) {
+        // For denominator, include real/nominal options
+        if (isDenominator) {
+            results.push({
+                code: 'real',
+                name: 'Real USD',
+                description: 'Inflation-Adjusted USD',
+                type: 'builtin'
+            });
+            results.push({
+                code: 'nominal',
+                name: 'Nominal USD',
+                description: 'Current USD (not adjusted)',
+                type: 'builtin'
+            });
+        }
+
+        // Return all built-in assets if no query
+        for (const [code, meta] of Object.entries(assetMetadata)) {
+            results.push({
+                code: code,
+                name: meta.name,
+                description: meta.description,
+                type: 'builtin'
+            });
+        }
+        return results;
+    }
+
+    // For denominator, search real/nominal first
+    if (isDenominator) {
+        if ('real'.includes(lowerQuery) || 'inflation'.includes(lowerQuery) || 'adjusted'.includes(lowerQuery)) {
+            results.push({
+                code: 'real',
+                name: 'Real USD',
+                description: 'Inflation-Adjusted USD',
+                type: 'builtin'
+            });
+        }
+        if ('nominal'.includes(lowerQuery) || 'current'.includes(lowerQuery) || 'usd'.includes(lowerQuery)) {
+            results.push({
+                code: 'nominal',
+                name: 'Nominal USD',
+                description: 'Current USD (not adjusted)',
+                type: 'builtin'
+            });
+        }
+    }
+
+    // Search built-in assets
+    for (const [code, meta] of Object.entries(assetMetadata)) {
+        const matches =
+            meta.name.toLowerCase().includes(lowerQuery) ||
+            code.toLowerCase().includes(lowerQuery) ||
+            meta.keywords.some(kw => kw.includes(lowerQuery));
+
+        if (matches) {
+            results.push({
+                code: code,
+                name: meta.name,
+                description: meta.description,
+                type: 'builtin'
+            });
+        }
+    }
+
+    // Search custom assets
+    for (const [ticker, asset] of Object.entries(customAssets)) {
+        const matches =
+            ticker.toLowerCase().includes(lowerQuery) ||
+            asset.name.toLowerCase().includes(lowerQuery) ||
+            (asset.longName && asset.longName.toLowerCase().includes(lowerQuery));
+
+        if (matches) {
+            results.push({
+                code: ticker,
+                name: asset.longName || asset.name,
+                description: `Custom asset from Polygon.io`,
+                type: 'custom'
+            });
+        }
+    }
+
+    // If query looks like a ticker (short uppercase), suggest it as a custom search
+    if (lowerQuery.length >= 1 && lowerQuery.length <= 10 && results.length < 5) {
+        results.push({
+            code: lowerQuery.toUpperCase(),
+            name: `Search Polygon.io for "${lowerQuery.toUpperCase()}"`,
+            description: 'Fetch data from Polygon.io',
+            type: 'search'
+        });
+    }
+
+    return results;
+}
+
+// Display asset suggestions in dropdown
+function displayAssetSuggestions(suggestionsDiv, results, inputElement) {
+    if (results.length === 0) {
+        suggestionsDiv.style.display = 'none';
+        return;
+    }
+
+    suggestionsDiv.innerHTML = '';
+    suggestionsDiv.style.display = 'block';
+
+    results.forEach(result => {
+        const div = document.createElement('div');
+        div.className = 'asset-suggestion';
+        div.innerHTML = `
+            <div class="suggestion-name">${result.name}<span class="suggestion-code">${result.code.toUpperCase()}</span></div>
+            <div class="suggestion-desc">${result.description}</div>
+        `;
+
+        div.addEventListener('click', async function(e) {
+            e.stopPropagation();
+
+            if (result.type === 'search') {
+                // Fetch from Polygon.io
+                try {
+                    showLoading();
+                    await fetchPolygonData(result.code);
+                    inputElement.value = customAssets[result.code].longName || result.code;
+                    inputElement.dataset.asset = result.code;
+
+                    // Auto-switch denominator to Real USD for custom tickers
+                    const denominatorInput = document.getElementById('denominator1');
+                    if (denominatorInput && !inputElement.id.includes('denominator')) {
+                        denominatorInput.value = 'Real USD (Inflation-Adjusted)';
+                        denominatorInput.dataset.asset = 'real';
+                    }
+
+                    hideLoading();
+                    suggestionsDiv.style.display = 'none';
+                    updateChartAndCalculator();
+                } catch (error) {
+                    hideLoading();
+                    alert(`Failed to fetch data for ${result.code}: ${error.message}\n\nPlease check the ticker symbol and try again.`);
+                }
+            } else {
+                // Built-in or already-cached custom asset
+                inputElement.value = result.name;
+                inputElement.dataset.asset = result.code;
+                suggestionsDiv.style.display = 'none';
+                updateChartAndCalculator();
+            }
+        });
+
+        suggestionsDiv.appendChild(div);
+    });
+}
+
 // Event dates for period selection
 const eventDates = {
     '1929-crash': new Date(1929, 9, 1),
@@ -258,8 +566,14 @@ function updateChartAndCalculator() {
     if (compareMode) {
         createComparisonChart();
     } else {
-        const asset = document.getElementById('asset1').value;
-        const denominator = document.getElementById('denominator1').value;
+        const asset = document.getElementById('asset1').dataset.asset;
+        const denominator = document.getElementById('denominator1').dataset.asset;
+
+        if (!asset || !denominator) {
+            console.log('Waiting for asset selection...');
+            return;
+        }
+
         createSingleAssetChart(asset, denominator);
 
         // Auto-calculate if investment amount is present
@@ -320,19 +634,18 @@ function loadConfigFromURL() {
 
             for (let i = 0; i < assets.length; i++) {
                 const asset = assets[i];
+                const assetName = getAssetName(asset);
 
                 const newRow = document.createElement('div');
                 newRow.className = 'compare-row';
                 newRow.setAttribute('data-index', i);
                 newRow.innerHTML = `
-                    <div class="control-group">
+                    <div class="control-group asset-search-group">
                         <label>Asset ${i + 1}:</label>
-                        <select class="compare-asset">
-                            <option value="cape" ${asset === 'cape' ? 'selected' : ''}>CAPE Ratio</option>
-                            <option value="home" ${asset === 'home' ? 'selected' : ''}>Home Price Index</option>
-                            <option value="sp500" ${asset === 'sp500' ? 'selected' : ''}>S&P 500</option>
-                            <option value="gold" ${asset === 'gold' ? 'selected' : ''}>Gold</option>
-                        </select>
+                        <div class="asset-search-container">
+                            <input type="text" class="asset-search" placeholder="Search: home, gold, spy, btc-usd..." data-asset="${asset}" value="${assetName}">
+                            <div class="asset-suggestions" style="display: none;"></div>
+                        </div>
                     </div>
                     ${i > 0 ? '<button class="remove-button" onclick="this.parentElement.remove(); document.dispatchEvent(new Event(\'compareChanged\'));">✕</button>' : ''}
                 `;
@@ -387,13 +700,15 @@ function updateURL() {
         // Add all comparison assets
         const compareRows = document.querySelectorAll('.compare-row');
         compareRows.forEach(row => {
-            const asset = row.querySelector('.compare-asset').value;
-            params.append('asset', asset);
+            const assetInput = row.querySelector('.asset-search');
+            if (assetInput && assetInput.value) {
+                params.append('asset', assetInput.value);
+            }
         });
     } else {
         // Single asset mode
-        const asset = document.getElementById('asset1').value;
-        const denominator = document.getElementById('denominator1').value;
+        const asset = document.getElementById('asset1').dataset.asset;
+        const denominator = document.getElementById('denominator1').dataset.asset;
         const amount = document.getElementById('investmentAmount').value;
 
         params.set('asset', asset);
@@ -565,7 +880,14 @@ function createComparisonChart() {
     const errors = [];
 
     compareRows.forEach(row => {
-        const asset = row.querySelector('.compare-asset').value;
+        const searchInput = row.querySelector('.asset-search');
+        const asset = searchInput?.dataset.asset;
+
+        if (!asset) {
+            errors.push('Please select an asset');
+            return;
+        }
+
         const dataset = createDataset(asset, denominator);
         if (dataset) {
             if (dataset.error) {
@@ -624,14 +946,17 @@ function createDataset(asset, denominator) {
         };
     }
 
-    const metadata = assetMetadata[asset];
+    const metadata = assetMetadata[asset] || customAssets[asset];
     const label = getDatasetLabel(asset, denominator);
+
+    // Get color from metadata or custom asset
+    const color = metadata?.color || '#888888';
 
     return {
         label: label,
         data: data,
-        borderColor: metadata.color,
-        backgroundColor: metadata.color.replace('rgb', 'rgba').replace(')', ', 0.1)'),
+        borderColor: color,
+        backgroundColor: color.replace('rgb', 'rgba').replace(')', ', 0.1)'),
         borderWidth: 2,
         pointRadius: 0,
         tension: 0.1
@@ -747,15 +1072,20 @@ function createChart(datasets, title) {
 }
 
 // Get user-friendly label for dataset
+// Get the display name for an asset
+function getAssetName(asset) {
+    return assetMetadata[asset]?.name || customAssets[asset]?.longName || asset.toUpperCase();
+}
+
 function getDatasetLabel(asset, denominator) {
-    const assetName = assetMetadata[asset]?.name || asset;
+    const assetName = getAssetName(asset);
 
     if (denominator === 'real') {
         return `${assetName} (Real USD)`;
     } else if (denominator === 'nominal') {
         return `${assetName} (Nominal USD)`;
     } else {
-        const denominatorName = assetMetadata[denominator]?.name || denominator;
+        const denominatorName = assetMetadata[denominator]?.name || customAssets[denominator]?.longName || denominator;
         return `${assetName} / ${denominatorName}`;
     }
 }
@@ -795,6 +1125,11 @@ function getDateRange() {
         case '100':
             return {
                 start: new Date(now.getFullYear() - 100, 0, 1),
+                end: now
+            };
+        case '2':
+            return {
+                start: new Date(now.getFullYear() - 2, 0, 1),
                 end: now
             };
         case 'custom':
@@ -949,8 +1284,40 @@ function setupEventListeners() {
     });
 
     // Auto-update on asset/denominator changes in single mode
-    document.getElementById('asset1').addEventListener('change', updateChartAndCalculator);
-    document.getElementById('denominator1').addEventListener('change', updateChartAndCalculator);
+    // Asset search
+    document.getElementById('asset1').addEventListener('input', debounce(function(e) {
+        const query = e.target.value;
+        const container = e.target.closest('.asset-search-container');
+        const suggestionsDiv = container.querySelector('.asset-suggestions');
+        const results = searchAssets(query, false);
+        displayAssetSuggestions(suggestionsDiv, results, e.target);
+    }, 300));
+
+    document.getElementById('asset1').addEventListener('focus', function(e) {
+        const query = e.target.value;
+        const container = e.target.closest('.asset-search-container');
+        const suggestionsDiv = container.querySelector('.asset-suggestions');
+        const results = searchAssets(query, false);
+        displayAssetSuggestions(suggestionsDiv, results, e.target);
+    });
+
+    // Denominator search
+    document.getElementById('denominator1').addEventListener('input', debounce(function(e) {
+        const query = e.target.value;
+        const container = e.target.closest('.asset-search-container');
+        const suggestionsDiv = container.querySelector('.asset-suggestions');
+        const results = searchAssets(query, true);
+        displayAssetSuggestions(suggestionsDiv, results, e.target);
+    }, 300));
+
+    document.getElementById('denominator1').addEventListener('focus', function(e) {
+        const query = e.target.value;
+        const container = e.target.closest('.asset-search-container');
+        const suggestionsDiv = container.querySelector('.asset-suggestions');
+        const results = searchAssets(query, true);
+        displayAssetSuggestions(suggestionsDiv, results, e.target);
+    });
+
     document.getElementById('investmentAmount').addEventListener('input', debounce(autoCalculateReturn, 500));
 
     // Auto-update when comparisons change
@@ -960,10 +1327,36 @@ function setupEventListeners() {
         setTimeout(updateChartAndCalculator, 100);
     });
 
-    // Auto-update when compare selects change (using event delegation)
-    document.getElementById('compareAssets').addEventListener('change', function(e) {
-        if (e.target.classList.contains('compare-asset')) {
-            updateChartAndCalculator();
+    // Handle asset search inputs (using event delegation)
+    document.getElementById('compareAssets').addEventListener('input', debounce(function(e) {
+        if (e.target.classList.contains('asset-search')) {
+            const query = e.target.value;
+            const container = e.target.closest('.asset-search-container');
+            const suggestionsDiv = container.querySelector('.asset-suggestions');
+
+            const results = searchAssets(query);
+            displayAssetSuggestions(suggestionsDiv, results, e.target);
+        }
+    }, 300));
+
+    // Handle asset search focus (show suggestions)
+    document.getElementById('compareAssets').addEventListener('focus', function(e) {
+        if (e.target.classList.contains('asset-search')) {
+            const query = e.target.value;
+            const container = e.target.closest('.asset-search-container');
+            const suggestionsDiv = container.querySelector('.asset-suggestions');
+
+            const results = searchAssets(query);
+            displayAssetSuggestions(suggestionsDiv, results, e.target);
+        }
+    }, true);
+
+    // Handle clicking outside to close suggestions
+    document.addEventListener('click', function(e) {
+        if (!e.target.classList.contains('asset-search') && !e.target.closest('.asset-suggestions')) {
+            document.querySelectorAll('.asset-suggestions').forEach(div => {
+                div.style.display = 'none';
+            });
         }
     });
 
@@ -1010,14 +1403,12 @@ function addComparisonRow() {
     newRow.className = 'compare-row';
     newRow.setAttribute('data-index', newIndex);
     newRow.innerHTML = `
-        <div class="control-group">
+        <div class="control-group asset-search-group">
             <label>Asset ${newIndex + 1}:</label>
-            <select class="compare-asset">
-                <option value="cape">CAPE Ratio</option>
-                <option value="home">Home Price Index</option>
-                <option value="sp500">S&P 500</option>
-                <option value="gold">Gold</option>
-            </select>
+            <div class="asset-search-container">
+                <input type="text" class="asset-search" placeholder="Search: home, gold, spy, btc-usd..." data-asset="">
+                <div class="asset-suggestions" style="display: none;"></div>
+            </div>
         </div>
         <button class="remove-button" onclick="this.parentElement.remove(); document.dispatchEvent(new Event('compareChanged'));">✕</button>
     `;
@@ -1031,8 +1422,8 @@ document.addEventListener('compareChanged', updateChartAndCalculator);
 // Calculate investment return based on current chart configuration
 function calculateInvestmentReturn() {
     const amount = parseFloat(document.getElementById('investmentAmount').value) || 0;
-    const asset = document.getElementById('asset1').value;
-    const denominator = document.getElementById('denominator1').value;
+    const asset = document.getElementById('asset1').dataset.asset;
+    const denominator = document.getElementById('denominator1').dataset.asset;
 
     // Get the current date range from the page controls
     const dateRange = getDateRange();
@@ -1258,5 +1649,73 @@ function showError(message) {
     }
 }
 
+// API Key Management
+const API_KEY_STORAGE_KEY = 'polygon_api_key';
+
+function getStoredApiKey() {
+    return localStorage.getItem(API_KEY_STORAGE_KEY);
+}
+
+function saveApiKey(apiKey) {
+    localStorage.setItem(API_KEY_STORAGE_KEY, apiKey);
+}
+
+function clearApiKey() {
+    localStorage.removeItem(API_KEY_STORAGE_KEY);
+}
+
+// Setup Event Listeners for Settings
+function setupSettingsListeners() {
+    // Settings button
+    document.getElementById('settingsButton')?.addEventListener('click', function() {
+        const modal = document.getElementById('settingsModal');
+        const input = document.getElementById('apiKeyInput');
+
+        // Load current API key into input
+        const currentKey = getStoredApiKey();
+        if (currentKey) {
+            input.value = currentKey;
+        }
+
+        modal.style.display = 'flex';
+    });
+
+    // Close modal
+    document.querySelectorAll('.close-modal').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.getElementById('settingsModal').style.display = 'none';
+        });
+    });
+
+    // Click outside to close
+    window.addEventListener('click', function(e) {
+        if (e.target.classList.contains('modal')) {
+            e.target.style.display = 'none';
+        }
+    });
+
+    // Save API key
+    document.getElementById('saveApiKey')?.addEventListener('click', function() {
+        const apiKey = document.getElementById('apiKeyInput').value.trim();
+        if (apiKey) {
+            saveApiKey(apiKey);
+            alert('✅ API key saved successfully!');
+            document.getElementById('settingsModal').style.display = 'none';
+        } else {
+            alert('⚠️ Please enter an API key');
+        }
+    });
+
+    // Clear API key
+    document.getElementById('clearApiKey')?.addEventListener('click', function() {
+        clearApiKey();
+        document.getElementById('apiKeyInput').value = '';
+        alert('🗑️ API key cleared');
+    });
+}
+
 // Start the application
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', function() {
+    init();
+    setupSettingsListeners();
+});

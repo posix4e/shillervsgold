@@ -8,14 +8,21 @@ A web-based visualization tool that combines Robert Shiller's CAPE ratio and hom
 
 ## Features
 
-- **Multiple Chart Types:**
-  - CAPE / Gold Ratio: Stock market valuation relative to gold
-  - Home Price / Gold Ratio: Real estate valuation relative to gold
-  - S&P 500 / Gold Ratio: Direct stock-to-gold comparison
-  - All Assets Normalized: Compare all three metrics on the same scale
+- **Flexible Asset Comparison:**
+  - Compare any built-in asset (CAPE, Home Price Index, S&P 500, Gold)
+  - Search and add any ticker from Polygon.io (stocks, crypto, ETFs, etc.)
+  - Value assets in any denominator (Real USD, Nominal USD, Gold, Homes, S&P 500, or custom tickers)
+  - Investment return calculator with date range selection
+
+- **Asset Search:**
+  - Type to search built-in assets (home, gold, cape, sp500)
+  - Enter any Polygon.io ticker (BTC-USD, TSLA, AAPL, etc.)
+  - Autocomplete suggestions with descriptions
+  - Cached data for fast repeated queries
 
 - **Flexible Date Ranges:**
-  - View all available data (1871-present)
+  - British History (1250+ for gold)
+  - Modern History (1871+ for stocks)
   - Last 50 or 100 years
   - Custom date range selection
 
@@ -64,77 +71,64 @@ A web-based visualization tool that combines Robert Shiller's CAPE ratio and hom
 
 - Built with vanilla JavaScript, HTML, and CSS
 - Uses Chart.js for visualization
-- **Preprocessed data** for instant loading and better performance
-- Data resolution optimized: monthly (last 10 years), quarterly (10-50 years ago), yearly (>50 years)
-- No backend required - runs entirely in the browser
+- **No build step or preprocessing** - loads data directly from APIs
+- Fetches data on-demand from Polygon.io for custom tickers
+- Client-side inflation adjustments using CPI data
+- No backend or Node.js required - runs entirely in the browser
 
 ## Architecture
 
-The project uses a **preprocessing approach** similar to strategyrainbow.com:
+The application uses a **direct API loading approach**:
 
-1. **Data Preprocessing (`preprocess.js`)**:
-   - Fetches data from Shiller Wrapper Data and FreeGoldAPI
-   - Reduces data resolution for optimal performance
-   - Computes all ratios (CAPE/Gold, Home/Gold, S&P500/Gold)
-   - Generates static JSON files in `/data` directory
+1. **Data Loading (`app.js`)**:
+   - Fetches stock/CAPE data from Shiller Wrapper Data API
+   - Fetches gold prices from FreeGoldAPI
+   - Fetches home price data from Shiller Wrapper Data API
+   - Polygon.io integration for custom tickers (BTC-USD, TSLA, AAPL, etc.)
 
-2. **GitHub Actions Automation (`.github/workflows/deploy.yml`)**:
-   - Runs daily at 7 AM UTC (after gold prices update)
-   - Fetches and preprocesses all data
-   - Deploys updated site to GitHub Pages
+2. **Client-Side Processing**:
+   - Real-time CPI-based inflation adjustments
+   - Dynamic ratio calculations (any asset vs any denominator)
+   - Cross-asset date matching and lookups
+   - Investment return calculations
 
-3. **Frontend (`app.js`)**:
-   - Loads preprocessed JSON files instantly
-   - No API calls or CSV parsing in browser
-   - Fast, responsive chart rendering
+3. **No Build Required**:
+   - No preprocessing step
+   - No npm dependencies
+   - Just open `index.html` in a browser
 
 ## Local Development
 
-### First-time setup
-
-1. Generate preprocessed data:
-   ```bash
-   node preprocess.js
-   ```
-
-2. Start a local server:
+1. Start a local server:
    ```bash
    # Python 3
-   python -m http.server 8000
+   python3 -m http.server 8000
 
-   # Node.js
-   npm run serve
-
-   # Or use npx
+   # Or use any static file server
    npx serve
    ```
 
-3. Visit `http://localhost:8000` in your browser
+2. Visit `http://localhost:8000` in your browser
 
-### Testing changes
-
-The site works entirely with the preprocessed data in the `/data` directory. To update the data, run `node preprocess.js` again.
+3. That's it! No build step needed.
 
 ## Deployment
 
 ### GitHub Pages (Recommended)
 
 1. Push to GitHub
-2. Enable GitHub Pages in repository settings
-3. The GitHub Action will automatically:
-   - Fetch and preprocess data daily
-   - Deploy to GitHub Pages
-   - Keep data updated without manual intervention
+2. Enable GitHub Pages in repository settings (deploy from main branch)
+3. Done! No build process needed.
 
 ### Other Hosting
 
 Deploy as a static site to any hosting service:
-- Netlify (with build command: `node preprocess.js`)
-- Vercel (with build command: `node preprocess.js`)
+- Netlify (no build command needed)
+- Vercel (no build command needed)
 - AWS S3 + CloudFront
 - Any static web host
 
-**Important**: Make sure to run `node preprocess.js` before deployment to generate the `/data` directory.
+Just upload the files - no preprocessing or build step required.
 
 ## Credits
 
